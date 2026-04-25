@@ -2,123 +2,143 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Spam Kovucu Ultra Max</title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:radial-gradient(circle at top,#1e3a8a,#020617 45%,#000);color:white}
-.app{max-width:520px;margin:auto;padding:18px 18px 44px}
-h1{font-size:34px;margin:18px 0 6px}
-.sub{color:#a5b4fc}
-.card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:26px;padding:18px;margin:14px 0}
-input{width:100%;padding:17px;border-radius:18px;border:1px solid rgba(255,255,255,.18);background:#020617;color:white;font-size:20px}
-button{border:0;border-radius:18px;padding:15px;color:white;font-weight:900;background:linear-gradient(135deg,#2563eb,#7c3aed)}
-.row{display:flex;gap:10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.stat{background:rgba(255,255,255,.07);border-radius:18px;padding:14px}
-.label{color:#94a3b8;font-size:13px}.value{font-size:24px;font-weight:900}
-.risk{font-size:44px;font-weight:950}.bar{height:14px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden}.fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444)}
-.hidden{display:none}.red{color:#ef4444}.yellow{color:#facc15}.green{color:#22c55e}
-.badge{display:inline-block;margin:5px 5px 0 0;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.12)}
-li{margin:8px 0;color:#dbeafe}.small{color:#94a3b8;font-size:13px}
+body{
+margin:0;
+font-family:-apple-system,BlinkMacSystemFont,Arial;
+background:#020617;
+color:#fff;
+padding:22px;
+}
+h1{
+font-size:56px;
+margin-bottom:25px;
+font-weight:800;
+}
+.card{
+background:#111827;
+border:1px solid rgba(255,255,255,.12);
+border-radius:28px;
+padding:22px;
+margin-bottom:22px;
+box-shadow:0 0 25px rgba(0,0,0,.35);
+}
+input{
+width:100%;
+padding:22px;
+font-size:34px;
+border:none;
+outline:none;
+border-radius:22px;
+background:#020617;
+color:white;
+box-sizing:border-box;
+margin-bottom:20px;
+}
+button{
+width:100%;
+padding:22px;
+font-size:34px;
+font-weight:700;
+border:none;
+border-radius:22px;
+background:#2563eb;
+color:white;
+}
+.big{
+font-size:58px;
+font-weight:800;
+margin-bottom:10px;
+}
+.line{
+font-size:28px;
+margin:14px 0;
+line-height:1.4;
+}
+.smallbtn{
+margin-top:15px;
+}
+a{
+color:#60a5fa;
+}
 </style>
 </head>
 <body>
-<div class="app">
+
 <h1>🛡️ Spam Kovucu Ultra Max</h1>
-<div class="sub">AI + D1 Hafıza + İhbar + Kara Liste</div>
 
 <div class="card">
-<div class="label">Telefon numarası</div>
-<div class="row" style="margin-top:10px">
-<input id="num" inputmode="tel" placeholder="03126242405">
-<button onclick="check()">Tara</button>
-</div>
-<p class="small">Bilinmeyen aramalarda kişisel bilgi paylaşma.</p>
+<input id="phone" placeholder="Numara gir">
+<button onclick="tara()">Tara</button>
 </div>
 
-<div id="load" class="card hidden"><h2>🧠 AI analiz ediyor...</h2></div>
-
-<div id="res" class="hidden">
-<div class="card">
-<div class="label">Risk seviyesi</div>
-<div id="risk" class="risk">-</div>
-<div class="bar"><div id="fill" class="fill"></div></div>
-<div class="grid" style="margin-top:14px">
-<div class="stat"><div class="label">Skor</div><div id="score" class="value">-</div></div>
-<div class="stat"><div class="label">Hafıza</div><div id="hits" class="value">-</div></div>
-<div class="stat"><div class="label">İhbar</div><div id="reports" class="value">-</div></div>
-<div class="stat"><div class="label">Kara Liste</div><div id="black" class="value">-</div></div>
-</div>
-</div>
+<div id="result"></div>
 
 <div class="card">
-<h2>📄 Numara Kimliği</h2>
-<p><b>Operatör:</b> <span id="operator">-</span></p>
-<p><b>Şehir:</b> <span id="city">-</span></p>
-<p><b>Sahip:</b> <span id="owner">-</span></p>
-<p><b>Firma:</b> <span id="company">-</span></p>
-</div>
-
-<div class="card"><h2>🤖 AI Yorumu</h2><p id="ai">-</p></div>
-<div class="card"><h2>🚨 Bulgular</h2><ul id="complaints"></ul><div id="keys"></div></div>
-
-<div class="card">
-<h2>📣 İhbar Et</h2>
-<div class="grid">
-<button onclick="report('spam')">Spam</button>
-<button onclick="report('sessiz arama')">Sessiz Arama</button>
-<button onclick="report('dolandırıcılık')">Dolandırıcılık</button>
-<button onclick="copyNum()">Kopyala</button>
-</div>
-</div>
-</div>
-
-<div class="card">
-<h2>📊 Canlı Panel</h2>
-<div class="grid">
-<div class="stat"><div class="label">Numara</div><div id="tn" class="value">-</div></div>
-<div class="stat"><div class="label">İhbar</div><div id="tr" class="value">-</div></div>
-<div class="stat"><div class="label">Kara Liste</div><div id="tb" class="value">-</div></div>
-<div class="stat"><div class="label">Durum</div><div class="value green">Aktif</div></div>
-</div>
-</div>
+<button class="smallbtn" onclick="location.href='https://spam-kovucu-api.tryamaneha.workers.dev/dashboard'">📊 Dashboard</button>
 </div>
 
 <script>
 const API="https://spam-kovucu-api.tryamaneha.workers.dev";
-let last="";
 
-async function check(){
-  last=document.getElementById("num").value.trim();
-  if(!last){alert("Numara gir");return}
-  load.classList.remove("hidden");res.classList.add("hidden");
-  const r=await fetch(API+"/analyze?number="+encodeURIComponent(last));
-  const d=await r.json();
-  render(d); await stats();
-  load.classList.add("hidden");
+async function tara(){
+let no=document.getElementById("phone").value.trim();
+if(!no) return;
+
+document.getElementById("result").innerHTML='<div class="card"><div class="big">Taranıyor...</div></div>';
+
+let r=await fetch(API+"/analyze?phone="+encodeURIComponent(no));
+let d=await r.json();
+
+document.getElementById("result").innerHTML=`
+<div class="card">
+<div class="big">${d.risk}</div>
+<div class="line">Skor: ${d.score}</div>
+<div class="line">Hafıza: ${d.memoryHits} kayıt</div>
+<div class="line">İhbar: ${d.reportCount}</div>
+<div class="line">Kara Liste: ${d.blacklist ? "EVET" : "HAYIR"}</div>
+<div class="line">${d.aiComment}</div>
+</div>
+
+<div class="card">
+<button onclick="ihbar('${no}')">🚨 Spam İhbar Et</button>
+</div>
+
+<div class="card">
+<button onclick="kara('${no}')">⛔ Kara Listeye Al</button>
+</div>
+`;
 }
-function render(d){
-  res.classList.remove("hidden");
-  risk.textContent=d.risk||"-";
-  risk.className="risk "+(d.risk==="Yüksek"?"red":d.risk==="Orta"?"yellow":"green");
-  score.textContent=d.score??"-"; fill.style.width=(d.score||0)+"%";
-  hits.textContent=d.memoryHits??"-"; reports.textContent=d.reportCount??0; black.textContent=d.blacklist?"Evet":"Hayır";
-  operator.textContent=d.operator||"-"; city.textContent=d.city||"-"; owner.textContent=d.owner||"-"; company.textContent=d.company||"-"; ai.textContent=d.aiComment||"-";
-  complaints.innerHTML=""; (d.complaints||[]).forEach(x=>{let li=document.createElement("li");li.textContent=x;complaints.appendChild(li)});
-  keys.innerHTML=""; (d.keywords||[]).forEach(x=>{let s=document.createElement("span");s.className="badge";s.textContent=x;keys.appendChild(s)});
+
+async function ihbar(no){
+await fetch(API+"/report",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+phone:no,
+type:"spam",
+note:"Safari kullanıcı ihbarı"
+})
+});
+alert("İhbar kaydedildi");
+tara();
 }
-async function report(type){
-  if(!last){alert("Önce numara tara");return}
-  const r=await fetch(API+"/report?number="+encodeURIComponent(last)+"&type="+encodeURIComponent(type)+"&note=app");
-  const d=await r.json(); alert(d.message||"Kaydedildi"); check();
+
+async function kara(no){
+await fetch(API+"/blacklist",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+phone:no,
+reason:"Safari manuel kara liste"
+})
+});
+alert("Kara listeye alındı");
+tara();
 }
-async function stats(){
-  const r=await fetch(API+"/stats");
-  const d=await r.json();
-  tn.textContent=d.totalNumbers??"-"; tr.textContent=d.totalReports??"-"; tb.textContent=d.totalBlacklist??"-";
-}
-function copyNum(){navigator.clipboard.writeText(last||num.value);alert("Kopyalandı")}
-stats();
 </script>
+
 </body>
 </html>
