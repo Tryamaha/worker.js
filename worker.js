@@ -331,9 +331,56 @@ button{background:#2563eb;color:white;border:0;font-weight:900;margin-top:10px}
 <div class="card">
 <input id="num" placeholder="03126242405">
 <button onclick="tara()">Tara</button>
+<div id="load" class="card hidden"><h2>🧠 AI analiz ediyor...</h2></div>
+
+<div id="res" class="hidden">
+<div class="card">
+<div class="label">Risk Seviyesi</div>
+<div id="risk" class="risk">-</div>
+<div class="bar"><div id="fill" class="fill"></div></div>
+
+<div class="grid" style="margin-top:14px">
+<div class="stat"><div class="label">Skor</div><div id="score" class="value">-</div></div>
+<div class="stat"><div class="label">Hafıza</div><div id="hits" class="value">-</div></div>
+<div class="stat"><div class="label">İhbar</div><div id="reports" class="value">-</div></div>
+<div class="stat"><div class="label">Kara Liste</div><div id="black" class="value">-</div></div>
+</div>
 </div>
 
-<div id="sonuc" class="card" style="display:none"></div>
+<div class="card">
+<h2>📇 Numara Kimliği</h2>
+<p><b>Operatör:</b> <span id="operator">-</span></p>
+<p><b>Şehir:</b> <span id="city">-</span></p>
+<p><b>Sahip:</b> <span id="owner">-</span></p>
+<p><b>Firma:</b> <span id="company">-</span></p>
+</div>
+
+<div class="card">
+<h2>🤖 AI Dedektif Yorumu</h2>
+<p id="ai" style="line-height:1.6;color:#dbeafe">-</p>
+</div>
+
+<div class="card">
+<h2>🚨 Bulgular</h2>
+<ul id="complaints"></ul>
+</div>
+
+<div class="card">
+<h2>🧬 Risk Kelimeleri</h2>
+<div id="keywords"></div>
+</div>
+
+<div class="card">
+<h2>🌐 Google Açık Web Bulguları</h2>
+<div id="web"></div>
+</div>
+
+<div class="card">
+<div class="row">
+<button style="flex:1" onclick="spamIhbar()">🚨 Spam İhbar</button>
+<button style="flex:1" onclick="karaListe()">⛔ Kara Liste</button>
+</div>
+</div>
 
 <div class="card">
 <button onclick="location.href='/dashboard'">📊 Dashboard</button>
@@ -341,18 +388,79 @@ button{background:#2563eb;color:white;border:0;font-weight:900;margin-top:10px}
 </div>
 
 <script>
-async function tara(){
-  const n=document.getElementById('num').value;
-  const r=await fetch('/analyze?number='+encodeURIComponent(n));
-  const d=await r.json();
-  document.getElementById('sonuc').style.display='block';
-  document.getElementById('sonuc').innerHTML =
-    '<div class="risk">'+d.risk+'</div>'+
-    '<p>Skor: '+d.score+'</p>'+
-    '<p>Hafıza: '+d.memoryHits+'</p>'+
-    '<p>İhbar: '+d.reportCount+'</p>'+
-    '<p>Kara Liste: '+(d.blacklist?'Evet':'Hayır')+'</p>'+
-    '<p>'+d.aiComment+'</p>';
+let lastPhone='';
+
+async function check(){
+const n=document.getElementById('num').value.trim();
+if(!n)return;
+lastPhone=n;
+document.getElementById('res').classList.add('hidden');
+document.getElementById('load').classList.remove('hidden');
+
+const r=await fetch('/analyze?phone='+encodeURIComponent(n));
+const d=await r.json();
+
+document.getElementById('load').classList.add('hidden');
+document.getElementById('res').classList.remove('hidden');
+
+document.getElementById('risk').innerText=d.risk;
+document.getElementById('score').innerText=d.score;
+document.getElementById('hits').innerText=d.memoryHits;
+document.getElementById('reports').innerText=d.reportCount;
+document.getElementById('black').innerText=d.blacklist?'EVET':'HAYIR';
+
+document.getElementById('operator').innerText=d.operator||'-';
+document.getElementById('city').innerText=d.city||'-';
+document.getElementById('owner').innerText=d.owner||'-';
+document.getElementById('company').innerText=d.company||'-';
+document.getElementById('ai').innerText=d.aiComment||'-';
+
+let width=d.score;
+if(width>100)width=100;
+document.getElementById('fill').style.width=width+'%';
+
+let cmp='';
+(d.complaints||[]).forEach(x=>cmp+='<li>'+x+'</li>');
+document.getElementById('complaints').innerHTML=cmp||'<li>Şikayet kaydı yok</li>';
+
+let kw='';
+(d.keywords||[]).forEach(x=>kw+='<span class="badge">'+x+'</span>');
+document.getElementById('keywords').innerHTML=kw||'Yok';
+
+let web='';
+(d.webResults||[]).forEach(x=>{
+web+=\`<p style="margin-bottom:16px"><b>\${x.title}</b><br>\${x.snippet}<br><a href="\${x.link}" target="_blank">Google Aç</a></p>\`;
+});
+document.getElementById('web').innerHTML=web||'Açık web sonucu bulunamadı';
+}
+
+async function spamIhbar(){
+if(!lastPhone)return;
+await fetch('/report',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+phone:lastPhone,
+type:'spam',
+note:'Safari kullanıcı spam ihbarı'
+})
+});
+alert('Spam ihbar kaydedildi');
+check();
+}
+
+async function karaListe(){
+if(!lastPhone)return;
+await fetch('/blacklist',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+phone:lastPhone,
+reason:'Safari manuel kara liste'
+})
+});
+alert('Kara listeye eklendi');
+check();
 }
 </script>
 </body>
