@@ -397,7 +397,7 @@ lastPhone=n;
 document.getElementById('res').classList.add('hidden');
 document.getElementById('load').classList.remove('hidden');
 
-const r=await fetch('/analyze?phone='+encodeURIComponent(n));
+const r=await fetch('/analyze?number='+encodeURIComponent(n));
 const d=await r.json();
 
 document.getElementById('load').classList.add('hidden');
