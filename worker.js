@@ -9,12 +9,12 @@ export default {
       if (request.method === "OPTIONS") return json({ ok: true });
 
       if (path === "/") return html(APP_HTML);
-      if (path === "/health") return json({ ok: true, app: "Spam Kovucu ULTRA MAX", status: "healthy", time: new Date().toISOString() });
-      if (path === "/dashboard") return html(renderDashboard(await getStats(env)));
-      if (path === "/stats") return json(await getStats(env));
+      if (path === "/health") return json({ ok: true, app: "Spam Kovucu ULTRA PRO PACK V2", status: "healthy", time: new Date().toISOString() });
       if (path === "/analyze") return json(await analyze(url, env, request));
       if (path === "/report") return json(await report(request, env, url));
       if (path === "/blacklist") return json(await blacklist(request, env, url));
+      if (path === "/stats") return json(await getStats(env));
+      if (path === "/dashboard") return html(renderDashboard(await getStats(env)));
 
       return json({ error: true, message: "Endpoint bulunamadı" }, 404);
     } catch (e) {
@@ -43,6 +43,13 @@ async function initDB(env) {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT UNIQUE,
     reason TEXT,
+    created_at TEXT
+  )`).run();
+
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT,
+    comment TEXT,
     created_at TEXT
   )`).run();
 
@@ -79,6 +86,7 @@ async function analyze(url, env, request) {
 
   const reports = await env.DB.prepare("SELECT COUNT(*) AS c FROM reports WHERE phone=?").bind(number).first();
   const black = await env.DB.prepare("SELECT * FROM blacklist WHERE phone=?").bind(number).first();
+  const comments = await env.DB.prepare("SELECT comment, created_at FROM comments WHERE phone=? ORDER BY id DESC LIMIT 5").bind(number).all();
 
   const id = identify(number);
   const reportCount = Number(reports?.c || 0);
@@ -88,18 +96,16 @@ async function analyze(url, env, request) {
   const complaints = [];
 
   if (number.startsWith("0312624")) {
-    keywords.push("çağrı merkezi", "rahatsız", "sessiz", "sabit hat");
+    keywords.push("çağrı merkezi", "rahatsız", "sessiz", "sabit hat", "outbound");
     complaints.push("Ankara toplu outbound arama kümesi ile eşleşti.");
   }
 
   if (number.startsWith("0850") || number.startsWith("444")) {
-    keywords.push("çağrı merkezi", "robot", "spam");
+    keywords.push("çağrı merkezi", "robot", "spam", "kurumsal arama");
     complaints.push("Kurumsal / çağrı merkezi paterni bulundu.");
   }
 
-  if (number.startsWith("05")) {
-    keywords.push("mobil hat");
-  }
+  if (number.startsWith("05")) keywords.push("mobil hat");
 
   if (reportCount > 0) complaints.push(`${reportCount} kullanıcı ihbarı bulundu.`);
   if (blacklisted) complaints.push("Numara kara listede kayıtlı.");
@@ -128,14 +134,8 @@ async function analyze(url, env, request) {
     company: id.company,
     keywords: [...new Set(keywords)],
     complaints,
-    aiComment: `AI dedektif motoru bu numaranın operatör paterni, D1 geçmiş hafızası, kullanıcı ihbarları, kara liste durumu ve risk kelime kümelerini birlikte değerlendirerek ${risk.toLowerCase()} risk taşıdığını düşünüyor.`,
-    osint: [
-      `${keywords.length} risk kelimesi eşleşti`,
-      "Operatör prefix eşleşmesi yapıldı",
-      `D1 hafıza sorgu sayısı: ${newHits}`,
-      `Kullanıcı ihbar sayısı: ${reportCount}`,
-      blacklisted ? "Kara liste eşleşmesi bulundu" : "Kara liste eşleşmesi yok"
-    ],
+    comments: comments.results || [],
+    aiComment: `AI dedektif motoru; operatör paterni, D1 geçmiş hafızası, kullanıcı ihbarları, kara liste durumu ve risk kelime kümelerini birlikte değerlendirerek bu numaranın ${risk.toLowerCase()} risk taşıdığını düşünüyor.`,
     webResults: [
       {
         title: `${number} şikayet / spam araması`,
@@ -146,6 +146,11 @@ async function analyze(url, env, request) {
         title: `${number} dolandırıcı mı?`,
         snippet: "Dolandırıcılık, çağrı merkezi ve sessiz arama kayıtları için hazır Google araması.",
         link: "https://www.google.com/search?q=" + encodeURIComponent(number + " dolandırıcı çağrı merkezi")
+      },
+      {
+        title: `${number} firma sorgusu`,
+        snippet: "Bu numara bir firmaya ait mi kontrol etmek için hazır arama.",
+        link: "https://www.google.com/search?q=" + encodeURIComponent(number + " firma kime ait")
       }
     ],
     analyzedAt: new Date().toLocaleString("tr-TR")
@@ -153,7 +158,7 @@ async function analyze(url, env, request) {
 }
 
 function identify(n) {
-  if (n.startsWith("0312")) return { operator: "Sabit Hat", city: "Ankara", base: 25, owner: "Ankara toplu outbound arama kümesi", company: "Küme eşleşmesine göre çağrı merkezi olasılığı" };
+  if (n.startsWith("0312")) return { operator: "Sabit Hat", city: "Ankara", base: 25, owner: "Ankara sabit hat / outbound küme", company: "Çağrı merkezi olasılığı" };
   if (n.startsWith("0212")) return { operator: "Sabit Hat", city: "İstanbul Avrupa", base: 25, owner: "İstanbul Avrupa sabit hat", company: "Bilinmiyor" };
   if (n.startsWith("0216")) return { operator: "Sabit Hat", city: "İstanbul Anadolu", base: 25, owner: "İstanbul Anadolu sabit hat", company: "Bilinmiyor" };
   if (n.startsWith("0232")) return { operator: "Sabit Hat", city: "İzmir", base: 20, owner: "İzmir sabit hat", company: "Bilinmiyor" };
@@ -178,6 +183,11 @@ async function report(request, env, url) {
 
   await env.DB.prepare("INSERT INTO reports (phone,type,note,created_at) VALUES (?,?,?,?)")
     .bind(phone, type, note, now()).run();
+
+  if (note) {
+    await env.DB.prepare("INSERT INTO comments (phone,comment,created_at) VALUES (?,?,?)")
+      .bind(phone, note, now()).run();
+  }
 
   return { ok: true, message: "İhbar kaydedildi", phone, type };
 }
@@ -209,11 +219,26 @@ async function getStats(env) {
   const numbers = await env.DB.prepare("SELECT COUNT(*) AS c FROM memory").first();
   const reports = await env.DB.prepare("SELECT COUNT(*) AS c FROM reports").first();
   const black = await env.DB.prepare("SELECT COUNT(*) AS c FROM blacklist").first();
+  const comments = await env.DB.prepare("SELECT COUNT(*) AS c FROM comments").first();
 
   const top = await env.DB.prepare(`
     SELECT phone, searches, updated_at
     FROM memory
     ORDER BY searches DESC
+    LIMIT 20
+  `).all();
+
+  const latestReports = await env.DB.prepare(`
+    SELECT phone, type, note, created_at
+    FROM reports
+    ORDER BY id DESC
+    LIMIT 10
+  `).all();
+
+  const blacklistTop = await env.DB.prepare(`
+    SELECT phone, reason, created_at
+    FROM blacklist
+    ORDER BY id DESC
     LIMIT 10
   `).all();
 
@@ -222,7 +247,10 @@ async function getStats(env) {
     totalNumbers: numbers?.c || 0,
     totalReports: reports?.c || 0,
     totalBlacklist: black?.c || 0,
-    topNumbers: top.results || []
+    totalComments: comments?.c || 0,
+    topNumbers: top.results || [],
+    latestReports: latestReports.results || [],
+    blacklistTop: blacklistTop.results || []
   };
 }
 
@@ -258,24 +286,29 @@ function renderDashboard(stats) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Spam Kovucu Dashboard</title>
+<title>Spam Kovucu Dashboard V2</title>
 <style>
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#020617;color:white}
-.app{max-width:520px;margin:auto;padding:22px}
+.app{max-width:620px;margin:auto;padding:22px}
 .card{background:#111827;border:1px solid #334155;border-radius:24px;padding:20px;margin:16px 0}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.value{font-size:44px;font-weight:900}.label{color:#94a3b8;font-size:20px}h1{font-size:42px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.value{font-size:42px;font-weight:900}.label{color:#94a3b8;font-size:18px}h1{font-size:42px}
+li{margin:10px 0;color:#dbeafe}
 </style>
 </head>
 <body>
 <div class="app">
-<h1>🛡️ Spam Kovucu Dashboard</h1>
+<h1>🛡️ Spam Kovucu Dashboard V2</h1>
 <div class="grid">
 <div class="card"><div class="label">Numara</div><div class="value">${stats.totalNumbers}</div></div>
 <div class="card"><div class="label">İhbar</div><div class="value">${stats.totalReports}</div></div>
 <div class="card"><div class="label">Kara Liste</div><div class="value">${stats.totalBlacklist}</div></div>
-<div class="card"><div class="label">Durum</div><div class="value">Aktif</div></div>
+<div class="card"><div class="label">Yorum</div><div class="value">${stats.totalComments}</div></div>
 </div>
-<div class="card"><h2>En Çok Sorgulananlar</h2><ul>${(stats.topNumbers||[]).map(x=>`<li>${x.phone} — ${x.searches} sorgu</li>`).join("")}</ul></div>
+
+<div class="card"><h2>🔥 En Çok Sorgulananlar</h2><ul>${(stats.topNumbers||[]).map(x=>`<li>${x.phone} — ${x.searches} sorgu</li>`).join("")}</ul></div>
+<div class="card"><h2>🚨 Son İhbarlar</h2><ul>${(stats.latestReports||[]).map(x=>`<li>${x.phone} — ${x.type} — ${x.note || ""}</li>`).join("")}</ul></div>
+<div class="card"><h2>⛔ Kara Liste</h2><ul>${(stats.blacklistTop||[]).map(x=>`<li>${x.phone} — ${x.reason}</li>`).join("")}</ul></div>
 </div>
 </body>
 </html>`;
@@ -287,7 +320,7 @@ const APP_HTML = `
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-<title>Spam Kovucu Ultra Max</title>
+<title>Spam Kovucu Ultra Max V2</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:radial-gradient(circle at top,#1e3a8a,#020617 45%,#000);color:white}
@@ -296,7 +329,7 @@ h1{font-size:34px;margin:18px 0 6px}.sub{color:#a5b4fc;margin-bottom:14px}
 .card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:26px;padding:18px;margin:14px 0;box-shadow:0 18px 40px rgba(0,0,0,.25)}
 input{width:100%;padding:17px;border-radius:18px;border:1px solid rgba(255,255,255,.18);background:#020617;color:white;font-size:20px}
 button{border:0;border-radius:18px;padding:15px;color:white;font-weight:900;background:linear-gradient(135deg,#2563eb,#7c3aed);font-size:16px;width:100%}
-.row{display:flex;gap:10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .stat{background:rgba(255,255,255,.07);border-radius:18px;padding:14px}.label{color:#94a3b8;font-size:13px}.value{font-size:22px;font-weight:900}
 .risk{font-size:44px;font-weight:950}.bar{height:15px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden}.fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444)}
 .hidden{display:none}.red{color:#ef4444}.yellow{color:#facc15}.green{color:#22c55e}
@@ -306,15 +339,13 @@ li{margin:8px 0;color:#dbeafe}.small{color:#94a3b8;font-size:13px}a{color:#38bdf
 </head>
 <body>
 <div class="app">
-<h1>🛡️ Spam Kovucu Ultra Max</h1>
+<h1>🛡️ Spam Kovucu Ultra Max V2</h1>
 <div class="sub">AI + D1 Hafıza + İhbar + Kara Liste + Google OSINT</div>
 
 <div class="card">
 <div class="label">Telefon numarası</div>
-<div class="row" style="margin-top:10px">
 <input id="num" inputmode="tel" placeholder="03126242405">
-<button onclick="check()">Tara</button>
-</div>
+<button style="margin-top:10px" onclick="check()">Tara</button>
 <p class="small">Bilinmeyen aramalarda kişisel bilgi paylaşma.</p>
 </div>
 
@@ -344,16 +375,18 @@ li{margin:8px 0;color:#dbeafe}.small{color:#94a3b8;font-size:13px}a{color:#38bdf
 <div class="card"><h2>🤖 AI Dedektif Yorumu</h2><p id="ai" style="line-height:1.6;color:#dbeafe">-</p></div>
 <div class="card"><h2>🚨 Bulgular</h2><ul id="complaints"></ul></div>
 <div class="card"><h2>🧬 Risk Kelimeleri</h2><div id="keywords"></div></div>
+<div class="card"><h2>💬 Kullanıcı Yorumları</h2><ul id="comments"></ul></div>
 <div class="card"><h2>🌐 Google Açık Web Bulguları</h2><div id="web"></div></div>
 
 <div class="card">
-<div class="grid">
+<input id="commentText" placeholder="Yorum / ihbar notu yaz">
+<div class="grid" style="margin-top:10px">
 <button onclick="spamIhbar()">🚨 Spam İhbar</button>
 <button onclick="karaListe()">⛔ Kara Liste</button>
 </div>
 </div>
 
-<div class="card"><button onclick="location.href='/dashboard'">📊 Dashboard</button></div>
+<div class="card"><button onclick="location.href='/dashboard'">📊 Dashboard V2</button></div>
 </div>
 </div>
 
@@ -367,40 +400,35 @@ async function check(){
   document.getElementById("res").classList.add("hidden");
   document.getElementById("load").classList.remove("hidden");
 
-  try{
-    const r=await fetch("/analyze?number="+encodeURIComponent(n)+"&t="+Date.now(),{cache:"no-store"});
-    const d=await r.json();
+  const r=await fetch("/analyze?number="+encodeURIComponent(n)+"&t="+Date.now(),{cache:"no-store"});
+  const d=await r.json();
 
-    document.getElementById("load").classList.add("hidden");
-    document.getElementById("res").classList.remove("hidden");
+  document.getElementById("load").classList.add("hidden");
+  document.getElementById("res").classList.remove("hidden");
 
-    document.getElementById("risk").innerText=d.risk || "-";
-    document.getElementById("risk").className="risk "+(d.risk==="Yüksek"?"red":d.risk==="Orta"?"yellow":"green");
-    document.getElementById("score").innerText=d.score ?? "-";
-    document.getElementById("hits").innerText=d.memoryHits ?? "-";
-    document.getElementById("reports").innerText=d.reportCount ?? "-";
-    document.getElementById("black").innerText=d.blacklist ? "EVET" : "HAYIR";
-    document.getElementById("operator").innerText=d.operator || "-";
-    document.getElementById("city").innerText=d.city || "-";
-    document.getElementById("owner").innerText=d.owner || "-";
-    document.getElementById("company").innerText=d.company || "-";
-    document.getElementById("ai").innerText=d.aiComment || "-";
+  document.getElementById("risk").innerText=d.risk || "-";
+  document.getElementById("risk").className="risk "+(d.risk==="Yüksek"?"red":d.risk==="Orta"?"yellow":"green");
+  document.getElementById("score").innerText=d.score ?? "-";
+  document.getElementById("hits").innerText=d.memoryHits ?? "-";
+  document.getElementById("reports").innerText=d.reportCount ?? "-";
+  document.getElementById("black").innerText=d.blacklist ? "EVET" : "HAYIR";
+  document.getElementById("operator").innerText=d.operator || "-";
+  document.getElementById("city").innerText=d.city || "-";
+  document.getElementById("owner").innerText=d.owner || "-";
+  document.getElementById("company").innerText=d.company || "-";
+  document.getElementById("ai").innerText=d.aiComment || "-";
+  document.getElementById("fill").style.width=Math.min(Number(d.score||0),100)+"%";
 
-    let width=Number(d.score||0); if(width>100) width=100;
-    document.getElementById("fill").style.width=width+"%";
-
-    document.getElementById("complaints").innerHTML=(d.complaints||[]).map(x=>"<li>"+x+"</li>").join("") || "<li>Şikayet kaydı yok</li>";
-    document.getElementById("keywords").innerHTML=(d.keywords||[]).map(x=>'<span class="badge">'+x+"</span>").join("") || "Yok";
-    document.getElementById("web").innerHTML=(d.webResults||[]).map(x=>'<p><b>'+x.title+'</b><br><span class="small">'+x.snippet+'</span><br><a href="'+x.link+'" target="_blank">Google Aç</a></p>').join("") || "Açık web sonucu yok";
-  }catch(e){
-    document.getElementById("load").classList.add("hidden");
-    alert("Analiz hatası: "+e.message);
-  }
+  document.getElementById("complaints").innerHTML=(d.complaints||[]).map(x=>"<li>"+x+"</li>").join("") || "<li>Şikayet kaydı yok</li>";
+  document.getElementById("keywords").innerHTML=(d.keywords||[]).map(x=>'<span class="badge">'+x+"</span>").join("") || "Yok";
+  document.getElementById("comments").innerHTML=(d.comments||[]).map(x=>"<li>"+x.comment+"</li>").join("") || "<li>Yorum yok</li>";
+  document.getElementById("web").innerHTML=(d.webResults||[]).map(x=>'<p><b>'+x.title+'</b><br><span class="small">'+x.snippet+'</span><br><a href="'+x.link+'" target="_blank">Google Aç</a></p>').join("") || "Açık web sonucu yok";
 }
 
 async function spamIhbar(){
   if(!lastPhone)return;
-  await fetch("/report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:lastPhone,type:"spam",note:"Safari kullanıcı spam ihbarı"})});
+  const note=document.getElementById("commentText").value || "Safari kullanıcı spam ihbarı";
+  await fetch("/report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:lastPhone,type:"spam",note})});
   alert("Spam ihbar kaydedildi");
   check();
 }
