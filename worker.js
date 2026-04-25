@@ -159,3 +159,147 @@ async function analyzeNumber(number, env, request) {
     company: "Küme eşleşmesine göre çağrı merkezi olasılığı",
     keywords,
     aiComment: `AI dedektif motoru bu numaranın operatör paterni, D1 geçmiş hafızası, kullanıcı ihbarları, kara liste durumu ve risk kelime kümelerini birlikte değerlendirerek ${risk.toLowerCase()} risk taşıdığını düşünüyor.`,
+    complaints: [
+      "Numara format analizi tamamlandı.",
+      "D1 hafıza kontrolü yapıldı.",
+      reports?.c ? `${reports.c} kullanıcı ihbarı bulundu.` : "Kullanıcı ihbarı bulunmadı.",
+      black ? "Numara kara listede kayıtlı." : "Kara liste eşleşmesi yok."
+    ],
+    osint: [
+      `${keywords.length} risk kelimesi eşleşti`,
+      "Operatör prefix eşleşmesi yapıldı",
+      `D1 hafıza sorgu sayısı: ${memory?.searches || 1}`,
+      `Kullanıcı ihbar sayısı: ${reports?.c || 0}`
+    ],
+    webResults: [
+      {
+        title: `${number} şikayet / spam araması`,
+        snippet: "Bu numara için manuel açık web kontrolü önerilir.",
+        link: "https://www.google.com/search?q=" + encodeURIComponent(number + " şikayet spam kimin numarası")
+      }
+    ],
+    analyzedAt: new Date().toLocaleString("tr-TR")
+  };
+}
+
+function detectOperator(n) {
+  if (n.startsWith("0312")) return "Sabit Hat";
+  if (n.startsWith("0212")) return "Sabit Hat";
+  if (n.startsWith("0216")) return "Sabit Hat";
+  if (n.startsWith("0850")) return "Kurumsal / Çağrı Merkezi";
+  if (n.startsWith("444")) return "Kurumsal / Çağrı Merkezi";
+  if (n.startsWith("05")) return "Mobil Hat";
+  return "Bilinmiyor";
+}
+
+function detectCity(n) {
+  if (n.startsWith("0312")) return "Ankara";
+  if (n.startsWith("0212")) return "İstanbul Avrupa";
+  if (n.startsWith("0216")) return "İstanbul Anadolu";
+  if (n.startsWith("0232")) return "İzmir";
+  if (n.startsWith("0236")) return "Manisa";
+  if (n.startsWith("0850") || n.startsWith("444")) return "Türkiye Geneli";
+  if (n.startsWith("05")) return "Mobil";
+  return "-";
+}
+
+function detectKeywords(n) {
+  const arr = [];
+
+  if (n.startsWith("0312624")) {
+    arr.push("çağrı merkezi", "rahatsız", "sessiz");
+  }
+
+  if (n.startsWith("0850") || n.startsWith("444")) {
+    arr.push("çağrı merkezi", "robot", "spam");
+  }
+
+  if (n.startsWith("0312")) {
+    arr.push("sabit hat");
+  }
+
+  return [...new Set(arr)];
+}
+
+async function getStats(env) {
+  const numbers = await env.DB.prepare("SELECT COUNT(*) as c FROM memory").first();
+  const reports = await env.DB.prepare("SELECT COUNT(*) as c FROM reports").first();
+  const black = await env.DB.prepare("SELECT COUNT(*) as c FROM blacklist").first();
+
+  const top = await env.DB.prepare(`
+    SELECT phone, searches, updated_at
+    FROM memory
+    ORDER BY searches DESC
+    LIMIT 10
+  `).all();
+
+  return {
+    ok: true,
+    totalNumbers: numbers?.c || 0,
+    totalReports: reports?.c || 0,
+    totalBlacklist: black?.c || 0,
+    topNumbers: top.results || []
+  };
+}
+
+function now() {
+  return new Date().toISOString();
+}
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: {
+      "content-type": "application/json;charset=utf-8",
+      "Access-Control-Allow-Origin": "*"
+    }
+  });
+}
+
+function html(content) {
+  return new Response(content, {
+    headers: {
+      "content-type": "text/html;charset=utf-8"
+    }
+  });
+}
+
+function renderDashboard(stats) {
+  return `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Spam Kovucu Dashboard</title>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#020617;color:white}
+.app{max-width:520px;margin:auto;padding:18px}
+.card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:18px;margin:14px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.value{font-size:32px;font-weight:900}
+.label{color:#94a3b8}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>🛡️ Spam Kovucu Dashboard</h1>
+
+<div class="grid">
+<div class="card"><div class="label">Numara</div><div class="value">${stats.totalNumbers}</div></div>
+<div class="card"><div class="label">İhbar</div><div class="value">${stats.totalReports}</div></div>
+<div class="card"><div class="label">Kara Liste</div><div class="value">${stats.totalBlacklist}</div></div>
+<div class="card"><div class="label">Durum</div><div class="value">Aktif</div></div>
+</div>
+
+<div class="card">
+<h2>En Çok Sorgulananlar</h2>
+<ul>
+${(stats.topNumbers || []).map(x => `<li>${x.phone} — ${x.searches} sorgu</li>`).join("")}
+</ul>
+</div>
+
+</div>
+</body>
+</html>`;
+}
