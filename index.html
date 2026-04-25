@@ -3,216 +3,161 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spam Kovucu PRO Ultra</title>
+<title>Spam Kovucu TITANIUM AI</title>
 <style>
 body{
-  margin:0;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-  background:radial-gradient(circle at top,#1e40af,#020617 45%);
-  color:white;
+margin:0;
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+background:radial-gradient(circle at top,#1d4ed8,#020617 45%,#000);
+color:white;
 }
-.app{max-width:540px;margin:auto;padding:18px}
-.card{
-  background:rgba(255,255,255,.09);
-  border:1px solid rgba(255,255,255,.16);
-  border-radius:26px;
-  padding:18px;
-  margin:14px 0;
-  backdrop-filter:blur(22px);
-}
-h1{font-size:32px;margin:8px 0}
+.app{max-width:560px;margin:auto;padding:18px}
+h1{font-size:34px;margin-bottom:4px}
 p{color:#cbd5e1}
+.card{
+background:rgba(255,255,255,.07);
+border:1px solid rgba(255,255,255,.14);
+border-radius:28px;
+padding:20px;
+margin:16px 0;
+backdrop-filter:blur(18px);
+box-shadow:0 0 35px rgba(0,0,0,.35);
+}
 input{
-  width:100%;
-  padding:16px;
-  border:none;
-  border-radius:18px;
-  background:#020617;
-  color:white;
-  font-size:22px;
-  box-sizing:border-box;
+width:100%;
+padding:17px;
+font-size:23px;
+border:none;
+border-radius:18px;
+background:#020617;
+color:white;
+box-sizing:border-box;
 }
 button{
-  width:100%;
-  padding:15px;
-  margin-top:12px;
-  border:none;
-  border-radius:18px;
-  font-size:17px;
-  font-weight:900;
-  color:white;
-  background:linear-gradient(135deg,#2563eb,#7c3aed);
+width:100%;
+padding:16px;
+margin-top:12px;
+font-size:18px;
+font-weight:800;
+border:none;
+border-radius:18px;
+background:linear-gradient(135deg,#2563eb,#7c3aed);
+color:white;
 }
-.score{text-align:center;font-size:72px;font-weight:950}
-.safe{color:#22c55e}.warn{color:#facc15}.danger{color:#ef4444}
+.score{
+font-size:82px;
+font-weight:900;
+text-align:center;
+}
+.safe{color:#22c55e}
+.warn{color:#facc15}
+.danger{color:#ef4444}
 .row{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  padding:12px 0;
-  border-bottom:1px solid rgba(255,255,255,.12);
+display:flex;
+justify-content:space-between;
+gap:12px;
+padding:12px 0;
+border-bottom:1px solid rgba(255,255,255,.1);
 }
 .row:last-child{border-bottom:none}
 .label{color:#94a3b8}
-.value{text-align:right;font-weight:800}
+.value{text-align:right;font-weight:700}
 .tag{
-  display:inline-block;
-  padding:8px 12px;
-  margin:5px;
-  border-radius:999px;
-  background:rgba(255,255,255,.13);
-  font-size:13px;
+display:inline-block;
+padding:9px 14px;
+margin:5px;
+border-radius:999px;
+background:rgba(255,255,255,.1);
+font-size:14px;
 }
-.alert{
-  background:rgba(239,68,68,.16);
-  border:1px solid rgba(239,68,68,.45);
+.source{
+background:rgba(255,255,255,.08);
+padding:16px;
+border-radius:20px;
+margin:12px 0;
 }
-.result{
-  background:rgba(255,255,255,.08);
-  padding:13px;
-  border-radius:16px;
-  margin-top:10px;
-}
-a{color:#bfdbfe;text-decoration:none}
-.small{font-size:13px;color:#94a3b8}
-ul{padding-left:20px}
-li{margin:8px 0;color:#e2e8f0}
+.source h3{margin:0 0 8px 0;font-size:17px}
+.source p{font-size:14px;color:#cbd5e1}
 .loading{text-align:center;color:#93c5fd}
 </style>
 </head>
 <body>
 <div class="app">
-
-<h1>🛡️ Spam Kovucu PRO Ultra</h1>
-<p>Gerçek web sinyali, şikayet izi, spam kelimeleri ve numara risk motoru.</p>
+<h1>🧠 Spam Kovucu TITANIUM AI</h1>
+<p>Yapay zeka destekli açık web + spam + şikayet + küme analizi</p>
 
 <div class="card">
-  <h2>📞 Numara Sorgula</h2>
-  <input id="phone" placeholder="Örn: 03126242405">
-  <button onclick="analyze()">ULTRA ENGINE ANALİZ</button>
+<input id="phone" placeholder="Örn: 03126242405">
+<button onclick="run()">ULTRA AI TARAMA BAŞLAT</button>
 </div>
 
 <div id="out"></div>
-
 </div>
 
 <script>
-const API = "https://spam-kovucu-api.tryamaneha.workers.dev";
+const API="https://spam-kovucu-api.tryamaneha.workers.dev";
 
-function scoreFromRisk(risk, keywords=[]){
-  let s = 20;
-  if(risk === "Şüpheli") s = 55;
-  if(risk === "Orta") s = 68;
-  if(risk === "Yüksek") s = 92;
-  s += Math.min((keywords || []).length * 3, 8);
-  return Math.min(s,100);
+function rc(s){
+if(s>=75)return"danger";
+if(s>=45)return"warn";
+return"safe";
 }
 
-function cls(score){
-  if(score >= 70) return "danger";
-  if(score >= 40) return "warn";
-  return "safe";
-}
+async function run(){
+const n=document.getElementById("phone").value.trim();
+const out=document.getElementById("out");
+if(!n){out.innerHTML='<div class="card">Numara gir.</div>';return;}
 
-async function analyze(){
-  const phone = document.getElementById("phone").value.trim();
-  const out = document.getElementById("out");
+out.innerHTML='<div class="card loading">🧠 AI motorları açık web tarıyor...</div>';
 
-  if(!phone){
-    out.innerHTML = `<div class="card">Numara gir.</div>`;
-    return;
-  }
+const r=await fetch(API+"?number="+encodeURIComponent(n));
+const d=await r.json();
 
-  out.innerHTML = `<div class="card loading">🔍 Ultra OSINT taraması yapılıyor...</div>`;
+let webCards="";
+(d.webResults||[]).forEach(x=>{
+webCards+=`
+<div class="source">
+<h3>${x.title}</h3>
+<p>${x.snippet}</p>
+</div>`;
+});
 
-  try{
-    const res = await fetch(API + "?number=" + encodeURIComponent(phone));
-    const data = await res.json();
+out.innerHTML=`
+<div class="card">
+<div class="score ${rc(d.score)}">${d.score}</div>
+<h2 class="${rc(d.score)}" style="text-align:center">${d.risk} Risk</h2>
+<div style="text-align:center">${d.aiComment}</div>
+</div>
 
-    const keywords = data.keywords || [];
-    const webResults = data.webResults || [];
-    const score = scoreFromRisk(data.risk, keywords);
-    const color = cls(score);
-    const q = encodeURIComponent(data.normalized || phone);
+<div class="card">
+<h2>📄 Numara Kimliği</h2>
+<div class="row"><div class="label">Numara</div><div class="value">${d.number}</div></div>
+<div class="row"><div class="label">Hat</div><div class="value">${d.operator}</div></div>
+<div class="row"><div class="label">Şehir</div><div class="value">${d.city}</div></div>
+<div class="row"><div class="label">Sahip</div><div class="value">${d.owner}</div></div>
+<div class="row"><div class="label">Firma</div><div class="value">${d.company}</div></div>
+</div>
 
-    out.innerHTML = `
-      <div class="card ${score >= 70 ? "alert" : ""}">
-        <h2 style="text-align:center">PRO Risk Skoru</h2>
-        <div class="score ${color}">${score}</div>
-        <h2 class="${color}" style="text-align:center">${data.risk} Risk</h2>
-        <div style="text-align:center">
-          <span class="tag">${data.operator}</span>
-          <span class="tag">${data.city}</span>
-          <span class="tag">${webResults.length} web sonucu</span>
-          <span class="tag">${keywords.length} risk kelimesi</span>
-        </div>
-      </div>
+<div class="card">
+<h2>🚨 AI Şikayet Bulguları</h2>
+<ul>${d.complaints.map(x=>"<li>"+x+"</li>").join("")}</ul>
+</div>
 
-      <div class="card">
-        <h2>🧾 Numara Kimliği</h2>
-        <div class="row"><div class="label">Numara</div><div class="value">${data.number}</div></div>
-        <div class="row"><div class="label">Normalize</div><div class="value">${data.normalized}</div></div>
-        <div class="row"><div class="label">Hat / Operatör</div><div class="value">${data.operator}</div></div>
-        <div class="row"><div class="label">Şehir</div><div class="value">${data.city}</div></div>
-        <div class="row"><div class="label">Sahip Tahmini</div><div class="value">${data.owner}</div></div>
-        <div class="row"><div class="label">Firma Tahmini</div><div class="value">${data.company}</div></div>
-        <div class="row"><div class="label">Son Analiz</div><div class="value">${new Date(data.updatedAt).toLocaleString("tr-TR")}</div></div>
-      </div>
+<div class="card">
+<h2>🧠 Risk Keyword Radar</h2>
+${d.keywords.map(x=>'<span class="tag">'+x+'</span>').join("")}
+</div>
 
-      <div class="card">
-        <h2>🚩 Şikayet / Spam Bulguları</h2>
-        <ul>${(data.complaints || []).map(x=>`<li>${x}</li>`).join("")}</ul>
-      </div>
+<div class="card">
+<h2>🌐 OSINT İzleri</h2>
+<ul>${d.osint.map(x=>"<li>"+x+"</li>").join("")}</ul>
+</div>
 
-      <div class="card">
-        <h2>🧠 Risk Keyword Radar</h2>
-        ${
-          keywords.length
-          ? keywords.map(k=>`<span class="tag">${k}</span>`).join("")
-          : `<p class="small">Risk kelimesi eşleşmedi.</p>`
-        }
-      </div>
-
-      <div class="card">
-        <h2>🌐 OSINT İzleri</h2>
-        <ul>${(data.osint || []).map(x=>`<li>${x}</li>`).join("")}</ul>
-      </div>
-
-      <div class="card">
-        <h2>📡 Canlı Web Kaynakları</h2>
-        ${
-          webResults.length
-          ? webResults.map(r=>`
-            <div class="result">
-              <b>${r.title}</b>
-              <p class="small">${r.snippet}</p>
-              <a target="_blank" href="${r.link}">Kaynağı aç →</a>
-            </div>
-          `).join("")
-          : `<p class="small">Web sonucu bulunamadı. API anahtarı eklenirse daha güçlü arama yapılır.</p>`
-        }
-      </div>
-
-      <div class="card">
-        <h2>🔎 Manuel Derin Arama</h2>
-        <a target="_blank" href="https://www.google.com/search?q=${q}+şikayet+spam+kimin+numarası">Google’da araştır →</a><br><br>
-        <a target="_blank" href="https://www.google.com/search?q=${q}+dolandırıcı">Dolandırıcı ihtimali ara →</a><br><br>
-        <a target="_blank" href="https://www.google.com/search?q=${q}+çağrı+merkezi+anket">Çağrı merkezi / anket ara →</a>
-      </div>
-
-      <div class="card">
-        <h2>🛡️ Tavsiye</h2>
-        <ul>
-          <li>SMS kodu, banka bilgisi, TC kimlik ve adres verme.</li>
-          <li>“Evet / onaylıyorum” deme.</li>
-          <li>Banka veya kurum diyorsa kapatıp resmî numarayı ara.</li>
-          <li>Yüksek riskte numarayı engelle.</li>
-        </ul>
-      </div>
-    `;
-  }catch(e){
-    out.innerHTML = `<div class="card alert">❌ API bağlantısı kurulamadı.</div>`;
-  }
+<div class="card">
+<h2>📡 Canlı Web Kaynakları</h2>
+${webCards}
+</div>
+`;
 }
 </script>
 </body>
