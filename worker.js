@@ -63,7 +63,7 @@ async function analyzeNumber(num,env){
 const op = detectOperator(num);
 
 const mem = await env.DB.prepare(
-"SELECT COUNT(*) as c FROM memory WHERE phone=?"
+"SELECT COUNT(*) as c FROM searches WHERE phone=?"
 ).bind(num).first();
 
 const rep = await env.DB.prepare(
