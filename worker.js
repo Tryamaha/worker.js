@@ -286,19 +286,28 @@ function renderDashboard(stats) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Spam Kovucu Dashboard V2</title>
+<title>Spam Kovucu PRO Dashboard</title>
 <style>
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#020617;color:white}
-.app{max-width:620px;margin:auto;padding:22px}
-.card{background:#111827;border:1px solid #334155;border-radius:24px;padding:20px;margin:16px 0}
+.app{max-width:650px;margin:auto;padding:22px}
+.card{background:#111827;border:1px solid #334155;border-radius:26px;padding:22px;margin:16px 0}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.value{font-size:42px;font-weight:900}.label{color:#94a3b8;font-size:18px}h1{font-size:42px}
-li{margin:10px 0;color:#dbeafe}
+.value{font-size:42px;font-weight:900}
+.label{color:#94a3b8;font-size:18px}
+h1{font-size:44px}
+h2{font-size:28px}
+li{margin:12px 0;color:#dbeafe;font-size:18px}
+button{width:100%;padding:18px;border:0;border-radius:20px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;font-size:20px;font-weight:900}
+.bar{height:14px;background:#1e293b;border-radius:99px;overflow:hidden;margin-top:8px}
+.fill{height:100%;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);width:75%}
+.badge{display:inline-block;background:#334155;padding:8px 12px;border-radius:999px;margin:4px;color:#e2e8f0}
 </style>
 </head>
 <body>
 <div class="app">
-<h1>🛡️ Spam Kovucu Dashboard V2</h1>
+
+<h1>🛡️ Spam Kovucu PRO Dashboard</h1>
+
 <div class="grid">
 <div class="card"><div class="label">Numara</div><div class="value">${stats.totalNumbers}</div></div>
 <div class="card"><div class="label">İhbar</div><div class="value">${stats.totalReports}</div></div>
@@ -306,14 +315,50 @@ li{margin:10px 0;color:#dbeafe}
 <div class="card"><div class="label">Yorum</div><div class="value">${stats.totalComments}</div></div>
 </div>
 
-<div class="card"><h2>🔥 En Çok Sorgulananlar</h2><ul>${(stats.topNumbers||[]).map(x=>`<li>${x.phone} — ${x.searches} sorgu</li>`).join("")}</ul></div>
-<div class="card"><h2>🚨 Son İhbarlar</h2><ul>${(stats.latestReports||[]).map(x=>`<li>${x.phone} — ${x.type} — ${x.note || ""}</li>`).join("")}</ul></div>
-<div class="card"><h2>⛔ Kara Liste</h2><ul>${(stats.blacklistTop||[]).map(x=>`<li>${x.phone} — ${x.reason}</li>`).join("")}</ul></div>
+<div class="card">
+<h2>📈 Sistem Risk Yoğunluğu</h2>
+<div class="label">Spam hareket seviyesi</div>
+<div class="bar"><div class="fill"></div></div>
+<p class="label">Sorgu, ihbar ve kara liste yoğunluğuna göre canlı risk görünümü.</p>
+</div>
+
+<div class="card">
+<h2>🔥 En Çok Sorgulananlar</h2>
+<ul>
+${(stats.topNumbers||[]).map(x=>`<li>${x.phone} — ${x.searches} sorgu</li>`).join("") || "<li>Kayıt yok</li>"}
+</ul>
+</div>
+
+<div class="card">
+<h2>🚨 Son İhbarlar</h2>
+<ul>
+${(stats.latestReports||[]).map(x=>`<li>${x.phone} — ${x.type} — ${x.note || ""}</li>`).join("") || "<li>İhbar yok</li>"}
+</ul>
+</div>
+
+<div class="card">
+<h2>⛔ Kara Liste</h2>
+<ul>
+${(stats.blacklistTop||[]).map(x=>`<li>${x.phone} — ${x.reason}</li>`).join("") || "<li>Kara liste boş</li>"}
+</ul>
+</div>
+
+<div class="card">
+<h2>⚡ Sistem Durumu</h2>
+<span class="badge">D1 Aktif</span>
+<span class="badge">AI Motor Aktif</span>
+<span class="badge">İhbar Sistemi Aktif</span>
+<span class="badge">Kara Liste Aktif</span>
+</div>
+
+<div class="card">
+<button onclick="location.href='/'">🏠 Ana Ekrana Dön</button>
+</div>
+
 </div>
 </body>
 </html>`;
 }
-
 const APP_HTML = `
 <!DOCTYPE html>
 <html lang="tr">
