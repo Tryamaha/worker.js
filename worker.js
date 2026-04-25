@@ -1,173 +1,184 @@
 export default {
   async fetch(request) {
-
     const url = new URL(request.url);
     const number = (url.searchParams.get("number") || "").replace(/\D/g,'');
 
-    if(!number){
-      return new Response(JSON.stringify({error:"number param missing"}),{
+    if (!number) {
+      return json({error:"number param missing"});
+    }
+
+    // -----------------------------
+    // BASIC TEL ANALYSIS
+    // -----------------------------
+    let operator = "Bilinmiyor";
+    let city = "Bilinmiyor";
+
+    if(number.startsWith("0312")){
+      operator = "Sabit Hat";
+      city = "Ankara";
+    }
+    if(number.startsWith("0212")){
+      operator = "Sabit Hat";
+      city = "İstanbul Avrupa";
+    }
+    if(number.startsWith("0224")){
+      operator = "Sabit Hat";
+      city = "Bursa";
+    }
+    if(number.startsWith("0532") || number.startsWith("0533") || number.startsWith("0542") || number.startsWith("0555")){
+      operator = "GSM Hat";
+      city = "Mobil";
+    }
+
+    // -----------------------------
+    // LIVE WEB SEARCH ENGINE
+    // -----------------------------
+    const query = `"${number}" spam OR şikayet OR kime ait OR çağrı merkezi OR tahsilat OR sessiz arama`;
+
+    let rawText = "";
+    let webResults = [];
+
+    try{
+      const r = await fetch("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query),{
         headers:{
-          "content-type":"application/json;charset=UTF-8",
-          "Access-Control-Allow-Origin":"*"
+          "user-agent":"Mozilla/5.0"
         }
       });
-    }
+      rawText = await r.text();
 
-    async function webScan(q){
-      try{
-        const r = await fetch("https://duckduckgo.com/html/?q="+encodeURIComponent(q),{
-          headers:{ "user-agent":"Mozilla/5.0" }
-        });
-        return await r.text();
-      }catch(e){
-        return "";
-      }
-    }
-
-    function clean(txt){
-      return txt
-        .replace(/<[^>]+>/g,' ')
-        .replace(/\s+/g,' ')
-        .trim();
-    }
-
-    function extractResults(html){
-      const arr = [];
-      const regex = /result__a[^>]*>(.*?)<\/a>[\s\S]*?result__snippet[^>]*>(.*?)<\/a>|result__snippet[^>]*>(.*?)<\/a>/gi;
+      const regex = /result__a[^>]*>(.*?)<\/a>[\s\S]*?result__snippet[^>]*>(.*?)<\/a>/gi;
       let m;
-      while((m = regex.exec(html)) !== null){
-        const title = clean(m[1] || "Web Sonuç");
-        const snippet = clean(m[2] || m[3] || "");
-        if(title.length > 5 || snippet.length > 10){
-          arr.push({
-            title,
-            snippet
-          });
-        }
-        if(arr.length >= 8) break;
+      while((m = regex.exec(rawText)) !== null && webResults.length < 8){
+        const title = clean(m[1]);
+        const snippet = clean(m[2]);
+        webResults.push({
+          title,
+          snippet,
+          link:"#"
+        });
       }
-      return arr;
-    }
+    }catch(e){}
 
-    function aiRiskEngine(number, webResults){
+    // -----------------------------
+    // KEYWORD RADAR
+    // -----------------------------
+    const keywordBank = [
+      "şikayet","spam","rahatsız","sessiz","dolandırıcı","tahsilat",
+      "çağrı merkezi","borç","icra","robot","otomatik arama","anket"
+    ];
 
-      let risk = "Düşük";
-      let score = 15;
-      let complaints = [];
-      let osint = [];
-      let webSignals = [];
-      let keywords = [];
+    let hitKeywords = [];
+    let keywordHits = 0;
 
-      const merged = JSON.stringify(webResults).toLowerCase();
+    const scanText = (rawText + JSON.stringify(webResults)).toLowerCase();
 
-      const riskWords = [
-        "şikayet","spam","dolandır","rahatsız","sessiz",
-        "çağrı merkezi","borç","kredi","tele satış","anket",
-        "robot arama","tahsilat","reklam"
-      ];
-
-      let hitCount = 0;
-
-      riskWords.forEach(k=>{
-        if(merged.includes(k)){
-          hitCount++;
-          keywords.push(k);
-        }
-      });
-
-      if(hitCount >= 1){
-        score += hitCount * 12;
-        osint.push(hitCount+" risk kelimesi eşleşti");
-      }
-
-      if(merged.includes("şikayet")){
-        complaints.push("Web sonuçlarında şikayet ifadesi bulundu.");
-      }
-
-      if(merged.includes("spam")){
-        complaints.push("Web sonuçlarında spam sinyali bulundu.");
-      }
-
-      if(merged.includes("sessiz")){
-        complaints.push("Sessiz çağrı / cevapsız arama sinyali bulundu.");
-      }
-
-      if(merged.includes("çağrı merkezi") || merged.includes("tele satış") || merged.includes("anket")){
-        complaints.push("Çağrı merkezi / tele satış benzeri sinyal bulundu.");
-      }
-
-      const prefix7 = number.substring(0,7);
-
-      const suspiciousClusters = {
-        "0312624":"Ankara toplu outbound arama kümesi",
-        "0212945":"İstanbul satış havuzu",
-        "0850484":"VoIP çağrı merkezi ağı",
-        "0312524":"Ankara şikayet kümelenmesi",
-        "0850303":"Robot arama ağı"
-      };
-
-      let owner = "Belirsiz";
-      let company = "Bilinmiyor";
-      let city = "Türkiye";
-      let operator = "Sabit Hat";
-
-      if(number.startsWith("0312")) city = "Ankara";
-      if(number.startsWith("0212")) city = "İstanbul Avrupa";
-      if(number.startsWith("0216")) city = "İstanbul Anadolu";
-      if(number.startsWith("0850")) operator = "VoIP Kurumsal";
-
-      if(suspiciousClusters[prefix7]){
-        score += 20;
-        owner = suspiciousClusters[prefix7];
-        company = "Küme eşleşmesine göre çağrı merkezi olasılığı";
-        complaints.push("Şüpheli numara kümesi ile eşleşti.");
-      }
-
-      if(score >= 75) risk = "Yüksek";
-      else if(score >= 45) risk = "Orta";
-      else risk = "Düşük";
-
-      osint.push("Numara format analizi tamamlandı");
-      osint.push("Operatör prefix eşleşmesi yapıldı");
-      osint.push(webResults.length+" web sonucu işlendi");
-
-      let aiComment = "";
-
-      if(risk === "Yüksek"){
-        aiComment = "AI motoru bu numaranın açık web şikayetleri, spam kelime yoğunluğu ve şüpheli arama kümeleri nedeniyle yüksek risk taşıdığını düşünüyor. Geri arama önerilmez.";
-      }else if(risk === "Orta"){
-        aiComment = "AI motoru bu numarada doğrudan dolandırıcılık kanıtı görmese de spam/rahatsız arama sinyalleri tespit etti. Temkinli yaklaşılmalı.";
-      }else{
-        aiComment = "AI motoru açık kaynaklarda ciddi negatif yoğunluk bulmadı. Yine de kimlik doğrulaması yapılmadan bilgi paylaşılmamalı.";
-      }
-
-      return {
-        number:number,
-        normalized:number,
-        operator,
-        city,
-        risk,
-        score,
-        owner,
-        company,
-        complaints,
-        osint,
-        keywords,
-        aiComment,
-        webResults
-      };
-    }
-
-    const html = await webScan(number+" şikayet spam kimin numarası");
-    const webResults = extractResults(html);
-    const result = aiRiskEngine(number, webResults);
-
-    return new Response(JSON.stringify(result),{
-      headers:{
-        "content-type":"application/json;charset=UTF-8",
-        "Access-Control-Allow-Origin":"*"
+    keywordBank.forEach(k=>{
+      if(scanText.includes(k)){
+        hitKeywords.push(k);
+        keywordHits++;
       }
     });
 
+    // -----------------------------
+    // CLUSTER ENGINE
+    // -----------------------------
+    let clusterFlag = false;
+    let owner = "Belirsiz";
+    let company = "Belirsiz";
+
+    if(number.startsWith("0312624")){
+      clusterFlag = true;
+      owner = "Ankara toplu outbound arama kümesi";
+      company = "Küme eşleşmesine göre çağrı merkezi olasılığı";
+    }
+
+    if(scanText.includes("tahsilat")){
+      company = "Tahsilat / alacak takip arama hattı olabilir";
+    }
+
+    // -----------------------------
+    // COMPLAINT ENGINE
+    // -----------------------------
+    let complaints = [];
+
+    if(scanText.includes("şikayet")) complaints.push("Web sonuçlarında şikayet ifadesi bulundu.");
+    if(scanText.includes("spam")) complaints.push("Web sonuçlarında spam sinyali bulundu.");
+    if(scanText.includes("sessiz")) complaints.push("Sessiz çağrı / cevapsız arama sinyali bulundu.");
+    if(clusterFlag) complaints.push("Şüpheli numara kümesi ile eşleşti.");
+
+    // -----------------------------
+    // AI RISK SCORE ENGINE
+    // -----------------------------
+    let score = 18;
+
+    score += webResults.length * 5;
+    score += keywordHits * 9;
+    if(clusterFlag) score += 18;
+    if(operator === "Sabit Hat") score += 8;
+    if(scanText.includes("tahsilat")) score += 12;
+    if(scanText.includes("sessiz")) score += 10;
+
+    if(score > 99) score = 99;
+
+    let risk = "Düşük";
+    if(score >= 75) risk = "Yüksek";
+    else if(score >= 45) risk = "Orta";
+    else if(score >= 25) risk = "Şüpheli";
+
+    // -----------------------------
+    // AI COMMENT ENGINE
+    // -----------------------------
+    let aiComment = "AI motoru bu numarada düşük tehdit gördü.";
+
+    if(risk === "Yüksek"){
+      aiComment = "AI dedektif motoru bu hattın açık web şikayet yoğunluğu, spam kelime kümeleri, sabit hat outbound davranışı ve şüpheli arama paterni nedeniyle yüksek risk taşıdığını düşünüyor. Geri aranması önerilmez.";
+    }else if(risk === "Orta"){
+      aiComment = "AI motoru numarada ticari spam veya çağrı merkezi davranışları tespit etti. Dikkatli olunmalıdır.";
+    }else if(risk === "Şüpheli"){
+      aiComment = "AI motoru numarada sınırlı şüpheli sinyal buldu ancak net güven vermiyor.";
+    }
+
+    // -----------------------------
+    // RESPONSE
+    // -----------------------------
+    return json({
+      number,
+      normalized:number,
+      operator,
+      city,
+      risk,
+      score,
+      owner,
+      company,
+      lastAnalysis:new Date().toISOString(),
+      complaints,
+      keywords:hitKeywords,
+      aiComment,
+      osint:[
+        `${keywordHits} risk kelimesi eşleşti`,
+        "Numara format analizi tamamlandı",
+        "Operatör prefix eşleşmesi yapıldı",
+        `${webResults.length} web sonucu işlendi`
+      ],
+      webResults
+    });
   }
+}
+
+function clean(str){
+  return str
+    .replace(/<[^>]+>/g,'')
+    .replace(/&quot;/g,'"')
+    .replace(/&#x27;/g,"'")
+    .replace(/&amp;/g,"&")
+    .trim();
+}
+
+function json(data){
+  return new Response(JSON.stringify(data),{
+    headers:{
+      "content-type":"application/json;charset=UTF-8",
+      "Access-Control-Allow-Origin":"*"
+    }
+  });
 }
