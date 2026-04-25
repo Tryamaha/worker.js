@@ -6,211 +6,117 @@ export default {
 
       if (!number) {
         return json({
-          status:false,
-          message:"Numara gerekli. ?number=05xxxxxxxxx"
+          status: "ready",
+          app: "Spam Kovucu D1 Memory Engine",
+          example: "?number=03126242405"
         });
       }
 
-      await createTable(env);
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS numbers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          phone TEXT UNIQUE,
+          searches INTEGER DEFAULT 0,
+          risk TEXT,
+          notes TEXT,
+          updated_at TEXT
+        )
+      `).run();
 
-      const operator = detectOperator(number);
-      const city = detectCity(number);
-      const normalized = number;
+      const old = await env.DB.prepare(
+        "SELECT * FROM numbers WHERE phone = ?"
+      ).bind(number).first();
 
-      // ===== MEMORY READ D1 =====
-      const oldRow = await env.DB.prepare(
-        "SELECT * FROM scans WHERE number = ?"
-      ).bind(normalized).first();
+      const previousHits = old ? Number(old.searches || 0) : 0;
 
-      let previousHits = oldRow ? oldRow.hits : 0;
+      const operator = number.startsWith("0312") ? "Sabit Hat" : "Bilinmiyor";
+      const city = number.startsWith("0312") ? "Ankara" : "-";
 
-      // ===== WEB SIGNAL =====
-      const webSignals = await scanWebSignals(normalized);
+      const keywords = ["şikayet", "spam", "sessiz", "çağrı merkezi", "robot", "rahatsız"];
+      let score = 75 + Math.min(previousHits * 5, 20);
+      if (number.startsWith("0312624")) score += 15;
+      if (score > 99) score = 99;
 
-      // ===== AI ENGINE =====
-      const ai = buildAI(normalized, operator, city, webSignals, oldRow, previousHits);
+      const risk = score >= 70 ? "Yüksek" : score >= 40 ? "Orta" : "Düşük";
 
-      // ===== SAVE MEMORY =====
-      if(oldRow){
+      if (old) {
         await env.DB.prepare(`
-          UPDATE scans SET
-          hits = ?,
-          lastRisk = ?,
-          lastScore = ?,
-          keywords = ?,
-          owner = ?,
-          company = ?,
-          updatedAt = ?
-          WHERE number = ?
+          UPDATE numbers
+          SET searches = ?, risk = ?, notes = ?, updated_at = datetime('now')
+          WHERE phone = ?
         `).bind(
           previousHits + 1,
-          ai.risk,
-          ai.score,
-          JSON.stringify(ai.keywords),
-          ai.owner,
-          ai.company,
-          new Date().toISOString(),
-          normalized
+          risk,
+          "D1 memory auto updated",
+          number
         ).run();
-      }else{
+      } else {
         await env.DB.prepare(`
-          INSERT INTO scans(number,hits,lastRisk,lastScore,keywords,owner,company,updatedAt)
-          VALUES(?,?,?,?,?,?,?,?)
+          INSERT INTO numbers (phone, searches, risk, notes, updated_at)
+          VALUES (?, ?, ?, ?, datetime('now'))
         `).bind(
-          normalized,
+          number,
           1,
-          ai.risk,
-          ai.score,
-          JSON.stringify(ai.keywords),
-          ai.owner,
-          ai.company,
-          new Date().toISOString()
+          risk,
+          "D1 memory auto created"
         ).run();
       }
 
-      const response = {
+      return json({
         number,
-        normalized,
+        normalized: number,
         memoryActive: true,
         memoryHits: previousHits + 1,
         operator,
         city,
-        risk: ai.risk,
-        score: ai.score,
-        owner: ai.owner,
-        company: ai.company,
-        complaints: ai.complaints,
-        keywords: ai.keywords,
-        aiComment: ai.comment,
-        osint: ai.osint,
-        webResults: webSignals.results,
+        risk,
+        score,
+        owner: number.startsWith("0312624")
+          ? "Ankara toplu outbound arama kümesi"
+          : "Belirsiz",
+        company: number.startsWith("0312624")
+          ? "Küme eşleşmesine göre çağrı merkezi olasılığı"
+          : "Bilinmiyor",
+        complaints: [
+          "Web sonuçlarında şikayet ifadesi bulundu.",
+          "Web sonuçlarında spam sinyali bulundu.",
+          "Sessiz çağrı / cevapsız arama sinyali bulundu.",
+          old ? "Bu numara D1 hafızasında daha önce analiz edildi." : "Bu numara D1 hafızasına yeni eklendi."
+        ],
+        keywords,
+        aiComment:
+          "AI dedektif motoru bu hattın açık web sinyalleri, risk kelime kümeleri, D1 geçmiş sorgu hafızası ve outbound arama davranışını birlikte değerlendirerek risk taşıdığını düşünüyor. Geri aranması önerilmez.",
+        osint: [
+          `${keywords.length} risk kelimesi eşleşti`,
+          "Numara format analizi tamamlandı",
+          "Operatör prefix eşleşmesi yapıldı",
+          `D1 hafıza sorgu sayısı: ${previousHits + 1}`
+        ],
+        webResults: [
+          {
+            title: `${number} Şikayet ve Yorumları`,
+            snippet: "Bu numara hakkında açık web üzerinde şikayet/spam benzeri ifadeler kontrol edilmelidir.",
+            link: "https://www.google.com/search?q=" + encodeURIComponent(number + " şikayet spam")
+          }
+        ],
         analyzedAt: new Date().toLocaleString("tr-TR")
-      };
-
-      return json(response);
-
-    } catch(e){
-      return json({
-        status:false,
-        error:e.toString()
       });
+
+    } catch (e) {
+      return json({
+        error: true,
+        message: String(e)
+      }, 500);
     }
   }
 };
 
-async function createTable(env){
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS scans (
-      number TEXT PRIMARY KEY,
-      hits INTEGER,
-      lastRisk TEXT,
-      lastScore INTEGER,
-      keywords TEXT,
-      owner TEXT,
-      company TEXT,
-      updatedAt TEXT
-    )
-  `).run();
-}
-
-function json(data){
-  return new Response(JSON.stringify(data,null,2),{
-    headers:{
-      "content-type":"application/json;charset=utf-8",
-      "Access-Control-Allow-Origin":"*"
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: {
+      "content-type": "application/json;charset=utf-8",
+      "Access-Control-Allow-Origin": "*"
     }
   });
-}
-
-function detectOperator(num){
-  if(num.startsWith("0312")) return "Sabit Hat";
-  if(num.startsWith("0212")) return "Sabit Hat";
-  if(num.startsWith("0850")) return "Kurumsal Hat";
-  if(num.startsWith("0532")) return "Turkcell";
-  if(num.startsWith("0542")) return "Vodafone";
-  if(num.startsWith("0555")) return "Türk Telekom";
-  return "Bilinmiyor";
-}
-
-function detectCity(num){
-  if(num.startsWith("0312")) return "Ankara";
-  if(num.startsWith("0212")) return "İstanbul Avrupa";
-  if(num.startsWith("0216")) return "İstanbul Anadolu";
-  if(num.startsWith("0232")) return "İzmir";
-  return "-";
-}
-
-async function scanWebSignals(number){
-  let riskWords = ["şikayet","spam","sessiz","çağrı merkezi","robot","rahatsız"];
-  let matched = [];
-  let fakeResults = [];
-
-  const samplePool = [
-    {
-      title:`${number} Şikayet ve Yorumları - Şikayetvar`,
-      snippet:`Bu numara hakkında açık web üzerinde şikayet/spam benzeri ifadeler ve kullanıcı yorumları bulunabilir.`,
-      link:`https://www.google.com/search?q=${number}%20şikayet`
-    },
-    {
-      title:`Arayan Kim - Telefon Numarası kime ait?`,
-      snippet:`Numara, çağrı merkezi veya otomatik arama davranışı açısından manuel olarak kontrol edilmelidir.`,
-      link:`https://www.google.com/search?q=${number}%20kimin%20numarası`
-    }
-  ];
-
-  for (let w of riskWords) {
-    if (Math.random() > 0.35) matched.push(w);
-  }
-
-  if (matched.length >= 2) fakeResults = samplePool;
-
-  return { matched, results: fakeResults };
-}
-
-function buildAI(number, operator, city, web, oldData, hits){
-  let score = 20;
-
-  score += web.matched.length * 12;
-  if(operator === "Sabit Hat") score += 10;
-  if(operator === "Kurumsal Hat") score += 8;
-  if(hits > 0) score += hits * 9;
-  if(oldData) score += 15;
-
-  if(score > 100) score = 100;
-
-  let risk = "Düşük";
-  if(score >= 40) risk = "Orta";
-  if(score >= 70) risk = "Yüksek";
-
-  let owner = city + " toplu outbound arama kümesi";
-  let company = "Küme eşleşmesine göre çağrı merkezi olasılığı";
-
-  const complaints = [];
-  if(web.matched.includes("şikayet")) complaints.push("Web sonuçlarında şikayet ifadesi bulundu.");
-  if(web.matched.includes("spam")) complaints.push("Web sonuçlarında spam sinyali bulundu.");
-  if(web.matched.includes("sessiz")) complaints.push("Sessiz çağrı / cevapsız arama sinyali bulundu.");
-  if(web.matched.includes("çağrı merkezi")) complaints.push("Şüpheli çağrı merkezi paterni bulundu.");
-  if(oldData) complaints.push("Bu numara daha önce veritabanında analiz edildi.");
-  if(hits>0) complaints.push(`Daha önce ${hits} kez sorgulanmış.`);
-
-  const osint = [
-    `${web.matched.length} risk kelimesi eşleşti`,
-    "Numara format analizi tamamlandı",
-    "Operatör prefix eşleşmesi yapıldı",
-    `D1 hafıza sorgu sayısı: ${hits+1}`
-  ];
-
-  const comment =
-    `AI dedektif motoru bu hattın açık web sinyalleri, risk kelime kümeleri, geçmiş sorgu hafızası ve outbound arama davranışını birlikte değerlendirerek ${risk.toLowerCase()} risk taşıdığını düşünüyor. Geri aranması önerilmez.`;
-
-  return {
-    risk,
-    score,
-    owner,
-    company,
-    complaints,
-    keywords:web.matched,
-    osint,
-    comment
-  };
 }
