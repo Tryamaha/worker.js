@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "spam-kovucu-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-04-25",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "spam_kovucu_db",
+      "database_id": "deb58c8f-10e3-4f3f-a5f3-fdc98a2ad5a9"
+    }
+  ]
+}
