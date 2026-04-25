@@ -6,14 +6,18 @@ export default {
 
       await initDB(env);
 
-      if (path === "/" || path === "/health") {
-        return json({
-          ok: true,
-          app: "Spam Kovucu ULTRA PRO MAX",
-          status: "healthy",
-          time: new Date().toISOString()
-        });
-      }
+   if (path === "/") {
+  return html(APP_HTML);
+}
+
+if (path === "/health") {
+  return json({
+    ok: true,
+    app: "Spam Kovucu ULTRA PRO MAX",
+    status: "healthy",
+    time: new Date().toISOString()
+  });
+}
 
       if (path === "/dashboard") {
         const stats = await getStats(env);
@@ -303,3 +307,54 @@ ${(stats.topNumbers || []).map(x => `<li>${x.phone} — ${x.searches} sorgu</li>
 </body>
 </html>`;
 }
+const APP_HTML = `
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Spam Kovucu Ultra Max</title>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#020617;color:white}
+.app{max-width:520px;margin:auto;padding:20px}
+.card{background:#111827;border:1px solid #334155;border-radius:22px;padding:18px;margin:14px 0}
+input,button{width:100%;padding:15px;border-radius:16px;font-size:18px}
+input{background:#020617;color:white;border:1px solid #334155}
+button{background:#2563eb;color:white;border:0;font-weight:900;margin-top:10px}
+.risk{font-size:40px;font-weight:900}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>🛡️ Spam Kovucu Ultra Max</h1>
+
+<div class="card">
+<input id="num" placeholder="03126242405">
+<button onclick="tara()">Tara</button>
+</div>
+
+<div id="sonuc" class="card" style="display:none"></div>
+
+<div class="card">
+<button onclick="location.href='/dashboard'">📊 Dashboard</button>
+</div>
+</div>
+
+<script>
+async function tara(){
+  const n=document.getElementById('num').value;
+  const r=await fetch('/analyze?number='+encodeURIComponent(n));
+  const d=await r.json();
+  document.getElementById('sonuc').style.display='block';
+  document.getElementById('sonuc').innerHTML =
+    '<div class="risk">'+d.risk+'</div>'+
+    '<p>Skor: '+d.score+'</p>'+
+    '<p>Hafıza: '+d.memoryHits+'</p>'+
+    '<p>İhbar: '+d.reportCount+'</p>'+
+    '<p>Kara Liste: '+(d.blacklist?'Evet':'Hayır')+'</p>'+
+    '<p>'+d.aiComment+'</p>';
+}
+</script>
+</body>
+</html>
+`;
