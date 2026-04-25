@@ -14,10 +14,8 @@ export default {
       await initDB(env);
 
       const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-      const limited = await rateLimit(env, ip, path);
-      if (limited) {
-        return cors({ error: true, message: "too many requests" }, 429);
-      }
+      const limited = await rateLimit(env, ip);
+      if (limited) return cors({ error: true, message: "too many requests" }, 429);
 
       if (path === "/health") return health();
       if (path === "/stats") return await stats(env);
@@ -27,10 +25,7 @@ export default {
       return await checkNumber(env, url);
 
     } catch (e) {
-      return cors({
-        error: true,
-        message: String(e)
-      }, 500);
+      return cors({ error: true, message: String(e) }, 500);
     }
   }
 };
@@ -82,13 +77,12 @@ async function initDB(env) {
     CREATE TABLE IF NOT EXISTS iplogs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       ip TEXT,
-      route TEXT,
       created_at TEXT
     )
   `).run();
 }
 
-async function rateLimit(env, ip, route) {
+async function rateLimit(env, ip) {
   const row = await env.DB.prepare(`
     SELECT COUNT(*) AS c
     FROM iplogs
@@ -99,9 +93,9 @@ async function rateLimit(env, ip, route) {
   if (row && row.c >= 20) return true;
 
   await env.DB.prepare(`
-    INSERT INTO iplogs (ip, route, created_at)
-    VALUES (?, ?, datetime('now'))
-  `).bind(ip, route).run();
+    INSERT INTO iplogs (ip, created_at)
+    VALUES (?, datetime('now'))
+  `).bind(ip).run();
 
   return false;
 }
@@ -148,22 +142,12 @@ async function checkNumber(env, url) {
       UPDATE numbers
       SET searches = ?, risk = ?, notes = ?, updated_at = datetime('now')
       WHERE phone = ?
-    `).bind(
-      previousHits + 1,
-      intel.risk,
-      intel.aiComment,
-      number
-    ).run();
+    `).bind(previousHits + 1, intel.risk, intel.aiComment, number).run();
   } else {
     await env.DB.prepare(`
       INSERT INTO numbers (phone, searches, risk, notes, updated_at)
       VALUES (?, ?, ?, ?, datetime('now'))
-    `).bind(
-      number,
-      1,
-      intel.risk,
-      intel.aiComment
-    ).run();
+    `).bind(number, 1, intel.risk, intel.aiComment).run();
   }
 
   return cors({
@@ -195,11 +179,6 @@ async function checkNumber(env, url) {
         title: `${number} şikayet / spam araması`,
         snippet: "Bu numara için manuel açık web kontrolü önerilir.",
         link: "https://www.google.com/search?q=" + encodeURIComponent(number + " şikayet spam kimin numarası")
-      },
-      {
-        title: `${number} dolandırıcı ihtimali`,
-        snippet: "Dolandırıcılık, çağrı merkezi veya sessiz arama sinyalleri ayrıca kontrol edilmelidir.",
-        link: "https://www.google.com/search?q=" + encodeURIComponent(number + " dolandırıcı çağrı merkezi")
       }
     ],
     analyzedAt: new Date().toLocaleString("tr-TR")
@@ -259,11 +238,7 @@ function analyzeSignals(number, hits, reports, blacklisted, base) {
   else if (score >= 45) risk = "Orta";
   else if (score >= 25) risk = "Şüpheli";
 
-  const uniqueKeywords = [...new Set(keywords)];
-
-  if (!complaints.length) {
-    complaints.push("Belirgin yüksek risk sinyali bulunamadı.");
-  }
+  if (!complaints.length) complaints.push("Belirgin yüksek risk sinyali bulunamadı.");
 
   return {
     score,
@@ -281,7 +256,7 @@ function analyzeSignals(number, hits, reports, blacklisted, base) {
       ? "Küme eşleşmesine göre çağrı merkezi olasılığı"
       : "Bilinmiyor",
     complaints,
-    keywords: uniqueKeywords,
+    keywords: [...new Set(keywords)],
     aiComment:
       `AI dedektif motoru bu numaranın operatör paterni, D1 geçmiş hafızası, kullanıcı ihbarları, kara liste durumu ve risk kelime kümelerini birlikte değerlendirerek ${risk.toLowerCase()} risk taşıdığını düşünüyor. Bilinmeyen aramalarda kişisel bilgi paylaşmayın.`
   };
@@ -289,7 +264,6 @@ function analyzeSignals(number, hits, reports, blacklisted, base) {
 
 async function report(request, env, url) {
   let body = {};
-
   if (request.method === "POST") {
     try { body = await request.json(); } catch(e) {}
   }
@@ -298,47 +272,29 @@ async function report(request, env, url) {
   const type = String(body.type || url.searchParams.get("type") || "Genel spam").slice(0, 80);
   const note = String(body.note || url.searchParams.get("note") || "").slice(0, 300);
 
-  if (!phone) {
-    return cors({ error: true, message: "phone gerekli" }, 400);
-  }
+  if (!phone) return cors({ error: true, message: "phone gerekli" }, 400);
 
   await env.DB.prepare(`
     INSERT INTO reports (phone, type, note, created_at)
     VALUES (?, ?, ?, datetime('now'))
   `).bind(phone, type, note).run();
 
-  return cors({
-    ok: true,
-    message: "İhbar kaydedildi",
-    phone,
-    type
-  });
+  return cors({ ok: true, message: "İhbar kaydedildi", phone, type });
 }
 
 async function blacklist(request, env, url) {
   const admin = url.searchParams.get("admin") || "";
-  if (admin !== env.API_KEY) {
-    return cors({ error: true, message: "admin unauthorized" }, 403);
-  }
+  if (admin !== env.API_KEY) return cors({ error: true, message: "admin unauthorized" }, 403);
 
   const phone = normalizePhone(url.searchParams.get("phone"));
   const reason = String(url.searchParams.get("reason") || "Admin kara liste").slice(0, 200);
   const remove = url.searchParams.get("remove") === "1";
 
-  if (!phone) {
-    return cors({ error: true, message: "phone gerekli" }, 400);
-  }
+  if (!phone) return cors({ error: true, message: "phone gerekli" }, 400);
 
   if (remove) {
-    await env.DB.prepare(
-      "DELETE FROM blacklist WHERE phone = ?"
-    ).bind(phone).run();
-
-    return cors({
-      ok: true,
-      message: "Kara listeden çıkarıldı",
-      phone
-    });
+    await env.DB.prepare("DELETE FROM blacklist WHERE phone = ?").bind(phone).run();
+    return cors({ ok: true, message: "Kara listeden çıkarıldı", phone });
   }
 
   await env.DB.prepare(`
@@ -346,26 +302,13 @@ async function blacklist(request, env, url) {
     VALUES (?, ?, datetime('now'))
   `).bind(phone, reason).run();
 
-  return cors({
-    ok: true,
-    message: "Kara listeye eklendi",
-    phone,
-    reason
-  });
+  return cors({ ok: true, message: "Kara listeye eklendi", phone, reason });
 }
 
 async function stats(env) {
-  const totalNumbers = await env.DB.prepare(
-    "SELECT COUNT(*) AS c FROM numbers"
-  ).first();
-
-  const totalReports = await env.DB.prepare(
-    "SELECT COUNT(*) AS c FROM reports"
-  ).first();
-
-  const totalBlacklist = await env.DB.prepare(
-    "SELECT COUNT(*) AS c FROM blacklist"
-  ).first();
+  const totalNumbers = await env.DB.prepare("SELECT COUNT(*) AS c FROM numbers").first();
+  const totalReports = await env.DB.prepare("SELECT COUNT(*) AS c FROM reports").first();
+  const totalBlacklist = await env.DB.prepare("SELECT COUNT(*) AS c FROM blacklist").first();
 
   const top = await env.DB.prepare(`
     SELECT phone, searches, risk, updated_at
