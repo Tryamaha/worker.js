@@ -115,12 +115,22 @@ return {
 number:num,
 operator:op.operator,
 city:op.city,
+possibleOwner: op.operator + " / açık web kontrolü gerekir",
+possibleCompany: "Kesin firma için Google araştırması gerekir",
+confidence: op.city==="Mobil Hat" ? "Düşük" : "Orta",
 memoryHits:mem.c+1,
 reportCount:rep.c,
 blacklist:blk.c>0,
 score:score,
 risk:risk,
 riskWords:riskWords,
+keywords:riskWords,
+findings:[
+  (mem.c+1)+" geçmiş sorgu bulundu.",
+  rep.c+" kullanıcı ihbarı bulundu.",
+  blk.c>0 ? "Numara kara listede kayıtlı." : "Kara liste kaydı yok.",
+  op.operator+" / "+op.city+" eşleşmesi yapıldı."
+],
 aiComment:aiComment,
 webResults:webResults
 };if(path==="/analyze"){
