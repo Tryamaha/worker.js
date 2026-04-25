@@ -25,7 +25,7 @@ if (path === "/health") {
       }
 
       if (path === "/analyze") {
-        const number = (url.searchParams.get("number") || "").replace(/\D/g, "");
+        const number = (url.searchParams.get("number") || url.searchParams.get("phone") || "").replace(/\D/g, "");
         if (!number) return json({ error: true, message: "Numara gerekli" });
 
         const result = await analyzeNumber(number, env, request);
