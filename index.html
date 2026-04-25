@@ -4,10 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spam Kovucu PRO MAX AI</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700;900&display=swap" rel="stylesheet">
+
 <style>
 body{
   margin:0;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  font-family:"Noto Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
   background:radial-gradient(circle at top,#1d4ed8,#020617 45%,#01030a 100%);
   color:#fff;
 }
@@ -31,28 +34,15 @@ button{
   font-size:17px;font-weight:800;color:white;
   background:linear-gradient(135deg,#2563eb,#7c3aed);
 }
-.score{
-  text-align:center;
-  font-size:74px;
-  font-weight:900;
-}
-.safe{color:#22c55e}
-.warn{color:#facc15}
-.danger{color:#ef4444}
-.row{
-  display:flex;justify-content:space-between;gap:12px;
-  padding:11px 0;border-bottom:1px solid rgba(255,255,255,.10);
-}
+.score{text-align:center;font-size:74px;font-weight:900}
+.safe{color:#22c55e}.warn{color:#facc15}.danger{color:#ef4444}
+.row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.10)}
 .row:last-child{border-bottom:none}
 .label{color:#94a3b8}
 .value{text-align:right;font-weight:700}
 .tag{
-  display:inline-block;
-  padding:8px 14px;
-  margin:5px;
-  border-radius:999px;
-  background:rgba(255,255,255,.10);
-  font-size:14px;
+  display:inline-block;padding:8px 14px;margin:5px;border-radius:999px;
+  background:rgba(255,255,255,.10);font-size:14px;
 }
 .loading{text-align:center;color:#93c5fd}
 ul{padding-left:22px}
@@ -65,10 +55,7 @@ li{margin:8px 0;color:#e2e8f0}
 }
 .src h3{margin:0 0 8px 0;font-size:17px}
 .src p{margin:0 0 10px 0;font-size:14px;color:#cbd5e1}
-a{
-  color:#bfdbfe;
-  text-decoration:none;
-}
+a{color:#bfdbfe;text-decoration:none}
 .toolbtn{
   width:48%;
   display:inline-block;
@@ -79,12 +66,30 @@ a{
   background:rgba(255,255,255,.08);
   font-weight:800;
 }
-.aiBox{
-  font-size:20px;
-  line-height:1.5;
-  color:#dbeafe;
-}
+.aiBox{font-size:20px;line-height:1.5;color:#dbeafe}
 .small{font-size:13px;color:#94a3b8}
+
+@media print{
+  body{
+    background:#fff!important;
+    color:#000!important;
+    font-family:"Noto Sans",Arial,sans-serif!important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  .app{max-width:100%;padding:12px}
+  .card{
+    background:#fff!important;
+    color:#000!important;
+    border:1px solid #ddd!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    page-break-inside:avoid;
+  }
+  p,.label,.small,li{color:#111!important}
+  .value,h1,h2,h3{color:#000!important}
+  button,.toolbtn{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -113,6 +118,7 @@ function riskClass(score){
 }
 
 function fmtDate(x){
+  if(!x) return "-";
   try{
     return new Date(x).toLocaleString("tr-TR");
   }catch(e){return "-";}
@@ -134,6 +140,10 @@ async function analyze(){
     const data = await res.json();
 
     const cls = riskClass(data.score||0);
+    const safeWeb = data.webResults || [];
+    const safeKeywords = data.keywords || [];
+    const safeComplaints = data.complaints || [];
+    const safeOsint = data.osint || [];
 
     out.innerHTML = `
     <div class="card">
@@ -143,14 +153,14 @@ async function analyze(){
       <div style="text-align:center">
         <span class="tag">${data.operator}</span>
         <span class="tag">${data.city}</span>
-        <span class="tag">${data.webResults.length} web sonucu</span>
-        <span class="tag">${data.keywords.length} risk kelimesi</span>
+        <span class="tag">${safeWeb.length} web sonucu</span>
+        <span class="tag">${safeKeywords.length} risk kelimesi</span>
       </div>
     </div>
 
     <div class="card">
       <h2>🤖 AI Dedektif Yorumu</h2>
-      <div class="aiBox">${data.aiComment}</div>
+      <div class="aiBox">${data.aiComment || "-"}</div>
     </div>
 
     <div class="card">
@@ -166,24 +176,24 @@ async function analyze(){
 
     <div class="card">
       <h2>🚨 AI Şikayet Bulguları</h2>
-      <ul>${data.complaints.map(x=>`<li>${x}</li>`).join("")}</ul>
+      <ul>${safeComplaints.map(x=>`<li>${x}</li>`).join("")}</ul>
     </div>
 
     <div class="card">
       <h2>🧠 Risk Keyword Radar</h2>
-      ${data.keywords.length ? data.keywords.map(x=>`<span class="tag">${x}</span>`).join("") : `<p class="small">risk kelimesi yok</p>`}
+      ${safeKeywords.length ? safeKeywords.map(x=>`<span class="tag">${x}</span>`).join("") : `<p class="small">Risk kelimesi yok</p>`}
     </div>
 
     <div class="card">
       <h2>🌐 OSINT İzleri</h2>
-      <ul>${data.osint.map(x=>`<li>${x}</li>`).join("")}</ul>
+      <ul>${safeOsint.map(x=>`<li>${x}</li>`).join("")}</ul>
     </div>
 
     <div class="card">
       <h2>📡 Canlı Web Kaynakları</h2>
       ${
-        data.webResults && data.webResults.length
-        ? data.webResults.map(w=>`
+        safeWeb.length
+        ? safeWeb.map(w=>`
           <div class="src">
             <h3>${w.title}</h3>
             <p>${w.snippet}</p>
@@ -197,7 +207,7 @@ async function analyze(){
     <div class="card">
       <h2>🛠️ Akıllı İşlemler</h2>
       <a class="toolbtn" href="javascript:navigator.clipboard.writeText('${data.number}')">Numarayı Kopyala</a>
-      <a class="toolbtn" href="https://wa.me/?text=${encodeURIComponent('Spam Kovucu Raporu%0A'+data.number+'%0ARisk:'+data.risk+' ('+data.score+')%0A'+data.aiComment)}" target="_blank">WhatsApp Paylaş</a>
+      <a class="toolbtn" href="https://wa.me/?text=${encodeURIComponent('Spam Kovucu Raporu\n'+data.number+'\nRisk: '+data.risk+' ('+data.score+')\n'+data.aiComment)}" target="_blank">WhatsApp Paylaş</a>
       <a class="toolbtn" href="javascript:print()">Rapor Yazdır/PDF</a>
       <a class="toolbtn" href="javascript:complaint('${data.number}','${data.aiComment}')">BTK Şikayet Notu</a>
     </div>
@@ -219,7 +229,7 @@ async function analyze(){
 }
 
 function complaint(no,comment){
-  alert("BTK Şikayet Taslağı:\\n\\n"+no+" numarası tarafından sürekli/spam içerikli rahatsız edici aramalar almaktayım. Yapay zekâ destekli açık kaynak analizinde numara yüksek riskli değerlendirilmiştir. "+comment+" Gerekli incelemenin yapılmasını arz ederim.");
+  alert("BTK Şikayet Taslağı:\\n\\n"+no+" numarası tarafından sürekli/spam içerikli rahatsız edici aramalar almaktayım. Yapay zekâ destekli açık kaynak analizinde numara riskli değerlendirilmiştir. "+comment+" Gerekli incelemenin yapılmasını arz ederim.");
 }
 </script>
 </body>
