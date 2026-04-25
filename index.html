@@ -2,333 +2,123 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Spam Kovucu ULTRA PRO</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Spam Kovucu Ultra Max</title>
 <style>
-:root{
-  --bg:#050816;
-  --card:#111827;
-  --card2:#172036;
-  --text:#f8fafc;
-  --muted:#94a3b8;
-  --blue:#38bdf8;
-  --green:#22c55e;
-  --yellow:#facc15;
-  --red:#ef4444;
-  --border:rgba(255,255,255,.12);
-}
 *{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-  background:
-    radial-gradient(circle at top,#1e3a8a 0,#020617 42%,#000 100%);
-  color:var(--text);
-}
-.app{
-  max-width:520px;
-  margin:auto;
-  padding:18px;
-  padding-bottom:40px;
-}
-.hero{
-  padding:26px 0 18px;
-}
-h1{
-  font-size:34px;
-  margin:0 0 8px;
-  letter-spacing:-.8px;
-}
-.sub{
-  color:var(--muted);
-  font-size:15px;
-}
-.card{
-  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));
-  border:1px solid var(--border);
-  border-radius:26px;
-  padding:18px;
-  margin:14px 0;
-  box-shadow:0 12px 40px rgba(0,0,0,.25);
-}
-.inputBox{
-  display:flex;
-  gap:10px;
-}
-input{
-  width:100%;
-  border:1px solid var(--border);
-  outline:none;
-  border-radius:18px;
-  padding:16px;
-  background:#020617;
-  color:white;
-  font-size:18px;
-}
-button{
-  border:0;
-  border-radius:18px;
-  padding:14px 16px;
-  color:white;
-  font-weight:800;
-  background:linear-gradient(135deg,#2563eb,#7c3aed);
-  font-size:16px;
-}
-button:active{transform:scale(.98)}
-.grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-.stat{
-  background:rgba(255,255,255,.06);
-  border:1px solid var(--border);
-  border-radius:20px;
-  padding:14px;
-}
-.label{
-  color:var(--muted);
-  font-size:13px;
-}
-.value{
-  font-size:22px;
-  font-weight:900;
-  margin-top:5px;
-}
-.risk{
-  font-size:42px;
-  font-weight:950;
-  letter-spacing:-1px;
-}
-.scoreWrap{
-  height:16px;
-  background:rgba(255,255,255,.1);
-  border-radius:99px;
-  overflow:hidden;
-  margin-top:12px;
-}
-.scoreBar{
-  height:100%;
-  width:0%;
-  background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);
-  transition:.5s;
-}
-.badge{
-  display:inline-flex;
-  padding:9px 12px;
-  background:rgba(255,255,255,.08);
-  border:1px solid var(--border);
-  border-radius:999px;
-  margin:5px 5px 0 0;
-  color:#e5e7eb;
-  font-size:14px;
-}
-.red{color:var(--red)}
-.yellow{color:var(--yellow)}
-.green{color:var(--green)}
-.blue{color:var(--blue)}
-.hidden{display:none}
-ul{padding-left:20px;color:#dbeafe}
-li{margin:8px 0}
-.small{
-  font-size:13px;
-  color:var(--muted);
-}
-.actions{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-.secondary{
-  background:rgba(255,255,255,.08);
-  border:1px solid var(--border);
-}
-.footer{
-  text-align:center;
-  color:var(--muted);
-  font-size:12px;
-  margin-top:22px;
-}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:radial-gradient(circle at top,#1e3a8a,#020617 45%,#000);color:white}
+.app{max-width:520px;margin:auto;padding:18px 18px 44px}
+h1{font-size:34px;margin:18px 0 6px}
+.sub{color:#a5b4fc}
+.card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:26px;padding:18px;margin:14px 0}
+input{width:100%;padding:17px;border-radius:18px;border:1px solid rgba(255,255,255,.18);background:#020617;color:white;font-size:20px}
+button{border:0;border-radius:18px;padding:15px;color:white;font-weight:900;background:linear-gradient(135deg,#2563eb,#7c3aed)}
+.row{display:flex;gap:10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:rgba(255,255,255,.07);border-radius:18px;padding:14px}
+.label{color:#94a3b8;font-size:13px}.value{font-size:24px;font-weight:900}
+.risk{font-size:44px;font-weight:950}.bar{height:14px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden}.fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444)}
+.hidden{display:none}.red{color:#ef4444}.yellow{color:#facc15}.green{color:#22c55e}
+.badge{display:inline-block;margin:5px 5px 0 0;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.12)}
+li{margin:8px 0;color:#dbeafe}.small{color:#94a3b8;font-size:13px}
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="hero">
-    <h1>🛡️ Spam Kovucu ULTRA PRO</h1>
-    <div class="sub">AI + D1 Hafıza + İhbar + Kara Liste Motoru</div>
-  </div>
+<h1>🛡️ Spam Kovucu Ultra Max</h1>
+<div class="sub">AI + D1 Hafıza + İhbar + Kara Liste</div>
 
-  <div class="card">
-    <div class="label">Telefon numarası</div>
-    <div class="inputBox" style="margin-top:10px">
-      <input id="number" inputmode="tel" placeholder="03126242405">
-      <button onclick="checkNumber()">Tara</button>
-    </div>
-    <div class="small" style="margin-top:10px">Bilinmeyen numaralarda SMS kodu, banka bilgisi ve TC kimlik paylaşma.</div>
-  </div>
+<div class="card">
+<div class="label">Telefon numarası</div>
+<div class="row" style="margin-top:10px">
+<input id="num" inputmode="tel" placeholder="03126242405">
+<button onclick="check()">Tara</button>
+</div>
+<p class="small">Bilinmeyen aramalarda kişisel bilgi paylaşma.</p>
+</div>
 
-  <div id="loading" class="card hidden">
-    <h2>🧠 AI analiz ediyor...</h2>
-    <div class="small">D1 hafıza, ihbarlar, kara liste ve risk paternleri kontrol ediliyor.</div>
-  </div>
+<div id="load" class="card hidden"><h2>🧠 AI analiz ediyor...</h2></div>
 
-  <div id="result" class="hidden">
-    <div class="card">
-      <div class="label">Risk Seviyesi</div>
-      <div id="risk" class="risk">-</div>
-      <div class="scoreWrap"><div id="scoreBar" class="scoreBar"></div></div>
-      <div class="grid" style="margin-top:14px">
-        <div class="stat"><div class="label">Skor</div><div id="score" class="value">-</div></div>
-        <div class="stat"><div class="label">Hafıza</div><div id="hits" class="value">-</div></div>
-        <div class="stat"><div class="label">İhbar</div><div id="reports" class="value">-</div></div>
-        <div class="stat"><div class="label">Kara Liste</div><div id="blacklist" class="value">-</div></div>
-      </div>
-    </div>
+<div id="res" class="hidden">
+<div class="card">
+<div class="label">Risk seviyesi</div>
+<div id="risk" class="risk">-</div>
+<div class="bar"><div id="fill" class="fill"></div></div>
+<div class="grid" style="margin-top:14px">
+<div class="stat"><div class="label">Skor</div><div id="score" class="value">-</div></div>
+<div class="stat"><div class="label">Hafıza</div><div id="hits" class="value">-</div></div>
+<div class="stat"><div class="label">İhbar</div><div id="reports" class="value">-</div></div>
+<div class="stat"><div class="label">Kara Liste</div><div id="black" class="value">-</div></div>
+</div>
+</div>
 
-    <div class="card">
-      <h2>📄 Numara Kimliği</h2>
-      <div class="grid">
-        <div class="stat"><div class="label">Operatör</div><div id="operator" class="value">-</div></div>
-        <div class="stat"><div class="label">Şehir</div><div id="city" class="value">-</div></div>
-      </div>
-      <p><b>Sahip Tahmini:</b> <span id="owner">-</span></p>
-      <p><b>Firma Tahmini:</b> <span id="company">-</span></p>
-    </div>
+<div class="card">
+<h2>📄 Numara Kimliği</h2>
+<p><b>Operatör:</b> <span id="operator">-</span></p>
+<p><b>Şehir:</b> <span id="city">-</span></p>
+<p><b>Sahip:</b> <span id="owner">-</span></p>
+<p><b>Firma:</b> <span id="company">-</span></p>
+</div>
 
-    <div class="card">
-      <h2>🤖 AI Dedektif Yorumu</h2>
-      <p id="aiComment" style="color:#dbeafe;line-height:1.5">-</p>
-    </div>
+<div class="card"><h2>🤖 AI Yorumu</h2><p id="ai">-</p></div>
+<div class="card"><h2>🚨 Bulgular</h2><ul id="complaints"></ul><div id="keys"></div></div>
 
-    <div class="card">
-      <h2>🚨 Bulgular</h2>
-      <ul id="complaints"></ul>
-      <div id="keywords"></div>
-    </div>
+<div class="card">
+<h2>📣 İhbar Et</h2>
+<div class="grid">
+<button onclick="report('spam')">Spam</button>
+<button onclick="report('sessiz arama')">Sessiz Arama</button>
+<button onclick="report('dolandırıcılık')">Dolandırıcılık</button>
+<button onclick="copyNum()">Kopyala</button>
+</div>
+</div>
+</div>
 
-    <div class="card">
-      <h2>🌐 Web OSINT</h2>
-      <ul id="webResults"></ul>
-    </div>
-
-    <div class="card">
-      <h2>📣 İhbar Et</h2>
-      <div class="actions">
-        <button class="secondary" onclick="reportNumber('spam')">Spam</button>
-        <button class="secondary" onclick="reportNumber('sessiz arama')">Sessiz Arama</button>
-        <button class="secondary" onclick="reportNumber('dolandırıcılık')">Dolandırıcılık</button>
-        <button class="secondary" onclick="copyNumber()">Numarayı Kopyala</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>📊 Canlı Sistem Paneli</h2>
-    <div class="grid">
-      <div class="stat"><div class="label">Numara</div><div id="totalNumbers" class="value">-</div></div>
-      <div class="stat"><div class="label">İhbar</div><div id="totalReports" class="value">-</div></div>
-      <div class="stat"><div class="label">Kara Liste</div><div id="totalBlacklist" class="value">-</div></div>
-      <div class="stat"><div class="label">Durum</div><div id="systemStatus" class="value green">Aktif</div></div>
-    </div>
-  </div>
-
-  <div class="footer">Spam Kovucu ULTRA PRO • Cloudflare Workers + D1</div>
+<div class="card">
+<h2>📊 Canlı Panel</h2>
+<div class="grid">
+<div class="stat"><div class="label">Numara</div><div id="tn" class="value">-</div></div>
+<div class="stat"><div class="label">İhbar</div><div id="tr" class="value">-</div></div>
+<div class="stat"><div class="label">Kara Liste</div><div id="tb" class="value">-</div></div>
+<div class="stat"><div class="label">Durum</div><div class="value green">Aktif</div></div>
+</div>
+</div>
 </div>
 
 <script>
-const API = "https://spam-kovucu-api.tryamaneha.workers.dev";
-const KEY = "spam2026";
-let lastNumber = "";
+const API="https://spam-kovucu-api.tryamaneha.workers.dev";
+let last="";
 
-async function checkNumber(){
-  const n = document.getElementById("number").value.trim();
-  if(!n){ alert("Numara gir"); return; }
-  lastNumber = n;
-
-  document.getElementById("loading").classList.remove("hidden");
-  document.getElementById("result").classList.add("hidden");
-
-  try{
-    const r = await fetch(`${API}/?key=${KEY}&number=${encodeURIComponent(n)}`);
-    const d = await r.json();
-    renderResult(d);
-    loadStats();
-  }catch(e){
-    alert("API bağlantı hatası");
-  }
-
-  document.getElementById("loading").classList.add("hidden");
+async function check(){
+  last=document.getElementById("num").value.trim();
+  if(!last){alert("Numara gir");return}
+  load.classList.remove("hidden");res.classList.add("hidden");
+  const r=await fetch(API+"/analyze?number="+encodeURIComponent(last));
+  const d=await r.json();
+  render(d); await stats();
+  load.classList.add("hidden");
 }
-
-function renderResult(d){
-  document.getElementById("result").classList.remove("hidden");
-
-  const riskEl = document.getElementById("risk");
-  riskEl.textContent = d.risk || "-";
-  riskEl.className = "risk " + (d.risk === "Yüksek" ? "red" : d.risk === "Orta" ? "yellow" : "green");
-
-  document.getElementById("score").textContent = d.score ?? "-";
-  document.getElementById("scoreBar").style.width = (d.score || 0) + "%";
-  document.getElementById("hits").textContent = d.memoryHits ?? "-";
-  document.getElementById("reports").textContent = d.reportCount ?? "0";
-  document.getElementById("blacklist").textContent = d.blacklist ? "Evet" : "Hayır";
-  document.getElementById("operator").textContent = d.operator || "-";
-  document.getElementById("city").textContent = d.city || "-";
-  document.getElementById("owner").textContent = d.owner || "-";
-  document.getElementById("company").textContent = d.company || "-";
-  document.getElementById("aiComment").textContent = d.aiComment || "-";
-
-  const c = document.getElementById("complaints");
-  c.innerHTML = "";
-  (d.complaints || []).forEach(x=>{
-    const li=document.createElement("li");
-    li.textContent=x;
-    c.appendChild(li);
-  });
-
-  const k = document.getElementById("keywords");
-  k.innerHTML = "";
-  (d.keywords || []).forEach(x=>{
-    const s=document.createElement("span");
-    s.className="badge";
-    s.textContent=x;
-    k.appendChild(s);
-  });
-
-  const w = document.getElementById("webResults");
-  w.innerHTML = "";
-  (d.webResults || []).forEach(x=>{
-    const li=document.createElement("li");
-    li.innerHTML = `<a style="color:#38bdf8" target="_blank" href="${x.link}">${x.title}</a><br><span class="small">${x.snippet}</span>`;
-    w.appendChild(li);
-  });
+function render(d){
+  res.classList.remove("hidden");
+  risk.textContent=d.risk||"-";
+  risk.className="risk "+(d.risk==="Yüksek"?"red":d.risk==="Orta"?"yellow":"green");
+  score.textContent=d.score??"-"; fill.style.width=(d.score||0)+"%";
+  hits.textContent=d.memoryHits??"-"; reports.textContent=d.reportCount??0; black.textContent=d.blacklist?"Evet":"Hayır";
+  operator.textContent=d.operator||"-"; city.textContent=d.city||"-"; owner.textContent=d.owner||"-"; company.textContent=d.company||"-"; ai.textContent=d.aiComment||"-";
+  complaints.innerHTML=""; (d.complaints||[]).forEach(x=>{let li=document.createElement("li");li.textContent=x;complaints.appendChild(li)});
+  keys.innerHTML=""; (d.keywords||[]).forEach(x=>{let s=document.createElement("span");s.className="badge";s.textContent=x;keys.appendChild(s)});
 }
-
-async function reportNumber(type){
-  if(!lastNumber){ alert("Önce numara tara"); return; }
-  const url = `${API}/report?key=${KEY}&phone=${encodeURIComponent(lastNumber)}&type=${encodeURIComponent(type)}&note=uygulama_ihbari`;
-  const r = await fetch(url);
-  const d = await r.json();
-  alert(d.message || "İhbar kaydedildi");
-  checkNumber();
+async function report(type){
+  if(!last){alert("Önce numara tara");return}
+  const r=await fetch(API+"/report?number="+encodeURIComponent(last)+"&type="+encodeURIComponent(type)+"&note=app");
+  const d=await r.json(); alert(d.message||"Kaydedildi"); check();
 }
-
-function copyNumber(){
-  navigator.clipboard.writeText(lastNumber || document.getElementById("number").value);
-  alert("Numara kopyalandı");
+async function stats(){
+  const r=await fetch(API+"/stats");
+  const d=await r.json();
+  tn.textContent=d.totalNumbers??"-"; tr.textContent=d.totalReports??"-"; tb.textContent=d.totalBlacklist??"-";
 }
-
-async function loadStats(){
-  try{
-    const r = await fetch(`${API}/stats?key=${KEY}`);
-    const d = await r.json();
-    document.getElementById("totalNumbers").textContent = d.totalNumbers ?? "-";
-    document.getElementById("totalReports").textContent = d.totalReports ?? "-";
-    document.getElementById("totalBlacklist").textContent = d.totalBlacklist ?? "-";
-  }catch(e){}
-}
-
-loadStats();
+function copyNum(){navigator.clipboard.writeText(last||num.value);alert("Kopyalandı")}
+stats();
 </script>
 </body>
 </html>
