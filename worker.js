@@ -6,9 +6,10 @@ export default {
       const path = url.pathname;
 
       if (request.method === "OPTIONS") return json({ ok: true });
+
       if (path === "/") return html(renderApp());
       if (path === "/dashboard") return html(renderDashboard(await getStats(env)));
-      if (path === "/health") return json({ ok:true, app:"Spam Kovucu Final Web Intelligence", status:"healthy" });
+      if (path === "/health") return json({ ok:true, app:"Spam Kovucu Ultra Intelligence", status:"healthy" });
       if (path === "/analyze") return json(await analyze(url, env));
       if (path === "/report") return json(await report(url, env));
       if (path === "/blacklist") return json(await blacklist(url, env));
@@ -117,6 +118,22 @@ function googleCards(phone){
   }));
 }
 
+function callerProfile(id, score, reportCount, blacklisted){
+  if(blacklisted) return "Kara liste kayıtlı yüksek riskli arayan";
+  if(id.operator.includes("Çağrı") && score >= 75) return "Robot arama / toplu outbound profili";
+  if(id.operator.includes("Çağrı")) return "Kurumsal çağrı merkezi profili";
+  if(id.operator==="Sabit Hat" && reportCount>0) return "Şikayet alan sabit hat araması";
+  if(id.operator==="Sabit Hat") return "Sabit hat / olası çağrı merkezi";
+  if(id.operator.includes("Mobil")) return "Bireysel mobil veya satış hattı";
+  return "Belirsiz arayan profili";
+}
+
+function recommendedAction(risk, blacklisted){
+  if(blacklisted) return "Geri arama yapma, kişisel bilgi paylaşma ve numarayı engelle.";
+  if(risk==="Yüksek") return "Geri arama önerilmez. SMS kodu, banka bilgisi veya TC kimlik paylaşma.";
+  if(risk==="Orta") return "Dikkatli ol. Önce Google araştırmasını kontrol et, gerekirse engelle.";
+  return "Belirgin yüksek risk yok; yine de bilinmeyen aramalarda kişisel bilgi paylaşma.";
+}
 async function analyze(url,env){
   const phone=clean(url.searchParams.get("number")||url.searchParams.get("phone"));
   if(!phone) return {error:true,message:"Numara gerekli"};
@@ -142,13 +159,17 @@ async function analyze(url,env){
   const complaintHits=reportCount + Math.floor(webSignal/2);
   const forumHits=Math.floor(webSignal/3);
   const companyTrace=(id.operator.includes("Çağrı") || id.operator==="Sabit Hat");
-
-  let callerType="Bireysel Mobil / Belirsiz";
-  if(id.operator.includes("Çağrı")) callerType="Toplu Outbound / Robot Arama";
-  if(id.operator==="Sabit Hat") callerType="Çağrı Merkezi Kümesi";
-  if(score>=75 && reportCount>0) callerType="Yoğun Şikayet Alan Arayan";
+  const profile=callerProfile(id, score, reportCount, blacklisted);
+  const action=recommendedAction(risk, blacklisted);
 
   const webAi=`Açık web görünümünde ${webSignal} sinyal, ${complaintHits} şikayet izi ve ${forumHits} forum/sözlük mention potansiyeli hesaplandı. Bu değerler Google arama kısayolları ve uygulama içi risk verileriyle tahmini üretilir.`;
+
+  const threatReason=[
+    memoryHits+" geçmiş sorgu",
+    reportCount+" kullanıcı ihbarı",
+    blacklisted?"kara liste eşleşmesi":"kara liste eşleşmesi yok",
+    id.operator+" / "+id.city+" paterni"
+  ].join(" • ");
 
   await env.DB.prepare("INSERT INTO memory(phone,score,created_at) VALUES(?,?,?)").bind(phone,score,now()).run();
 
@@ -156,6 +177,18 @@ async function analyze(url,env){
     phone,risk,score,memoryHits,reportCount,blacklist:blacklisted,
     operator:id.operator,city:id.city,possibleOwner:id.owner,possibleCompany:id.company,confidence:id.confidence,
     aiComment:"Bu sonuç kesin kişi bilgisi değildir. Sistem; operatör paterni, şehir/prefix, D1 geçmişi, kullanıcı ihbarı, kara liste ve açık web araştırma sinyallerine göre risk tahmini yapar.",
+    aiDecision:risk==="Yüksek"?"Yüksek dikkat gerekli":risk==="Orta"?"Kontrollü yaklaş":"Belirgin yüksek risk yok",
+    callerProfile:profile,
+    recommendedAction:action,
+    threatReason:threatReason,
+    scanSteps:[
+      "D1 hafıza taraması tamamlandı",
+      "Kullanıcı ihbarları kontrol edildi",
+      "Kara liste eşleşmesi sorgulandı",
+      "Operatör/prefix analizi yapıldı",
+      "Google OSINT kısayolları üretildi",
+      "AI karar motoru sonucu oluşturdu"
+    ],
     findings:[
       memoryHits+" geçmiş sorgu bulundu.",
       reportCount+" kullanıcı ihbarı bulundu.",
@@ -163,11 +196,12 @@ async function analyze(url,env){
       id.note
     ],
     keywords:words,
-    webSignal,complaintHits,forumHits,companyTrace,callerType,webAi,
+    webSignal,complaintHits,forumHits,companyTrace,callerType:profile,webAi,
     googleCards:googleCards(phone),
     analyzedAt:new Date().toLocaleString("tr-TR")
   };
 }
+
 async function report(url,env){
   const phone=clean(url.searchParams.get("number")||url.searchParams.get("phone"));
   const type=url.searchParams.get("type")||"spam";
@@ -292,6 +326,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;back
 .gtitle{font-size:18px;font-weight:900;color:#93c5fd}
 .gurl{font-size:12px;color:#22c55e;margin:5px 0}
 .gsnip{font-size:14px;color:#cbd5e1;line-height:1.45}
+.scanline{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#93c5fd;font-size:13px;margin:7px 0}
 a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{margin:9px 0;color:#dbeafe}
 </style>
 </head>
@@ -299,7 +334,7 @@ a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{mar
 <div class="bg"></div><div class="orb"></div>
 <div class="app">
 <div class="logo">Spam Kovucu</div>
-<div class="sub">Web Intelligence • AI + D1 hafıza + ihbar + kara liste + Google OSINT</div>
+<div class="sub">Ultra Intelligence • AI + D1 hafıza + ihbar + kara liste + Google OSINT</div>
 
 <div class="glass">
 <div class="label">Telefon numarası</div>
@@ -324,7 +359,15 @@ async function tara(){
 const n=document.getElementById('num').value.trim();
 if(!n){alert('Numara gir');return;}
 
-sonuc.innerHTML='<div class="glass"><h2>🧠 AI analiz ediyor...</h2><p class="muted">D1 hafıza, ihbarlar, kara liste ve açık web sinyalleri kontrol ediliyor.</p></div>';
+sonuc.innerHTML=
+'<div class="glass">'+
+'<h2>🧠 AI analiz ediyor...</h2>'+
+'<div class="scanline">▸ D1 hafıza kontrol ediliyor...</div>'+
+'<div class="scanline">▸ Kullanıcı ihbarları taranıyor...</div>'+
+'<div class="scanline">▸ Kara liste eşleşmesi sorgulanıyor...</div>'+
+'<div class="scanline">▸ Google OSINT kısayolları hazırlanıyor...</div>'+
+'<div class="scanline">▸ AI karar motoru çalışıyor...</div>'+
+'</div>';
 
 try{
 const r=await fetch('/analyze?number='+encodeURIComponent(n)+'&v='+Date.now(),{cache:'no-store'});
@@ -336,9 +379,11 @@ const cls=d.risk==='Yüksek'?'red':d.risk==='Orta'?'yellow':'green';
 
 sonuc.innerHTML=
 '<div class="glass"><div class="label">Risk Seviyesi</div><div class="risk '+cls+'">'+d.risk+'</div><div class="bar"><div id="fill" class="fill"></div></div><div class="grid"><div class="stat"><div class="label">Skor</div><div class="value">'+d.score+'</div></div><div class="stat"><div class="label">Hafıza</div><div class="value">'+d.memoryHits+'</div></div><div class="stat"><div class="label">İhbar</div><div class="value">'+d.reportCount+'</div></div><div class="stat"><div class="label">Kara Liste</div><div class="value">'+(d.blacklist?'EVET':'HAYIR')+'</div></div></div></div>'+
+'<div class="glass"><h2>🧠 AI Kararı</h2><p><b>Karar:</b> '+d.aiDecision+'</p><p><b>Arayan Profil:</b> '+d.callerProfile+'</p><p><b>Tehdit Nedeni:</b> '+d.threatReason+'</p><p><b>Önerilen Aksiyon:</b> '+d.recommendedAction+'</p></div>'+
 '<div class="glass"><h2>🌐 Açık Web Şikayet Analizi</h2><p><b>Web Sinyali:</b> '+d.webSignal+' sonuç</p><p><b>Kullanıcı Şikayet İzi:</b> '+d.complaintHits+' kayıt</p><p><b>Forum / Ekşi Mention:</b> '+d.forumHits+' kayıt</p><p><b>Firma Trace:</b> '+(d.companyTrace?'VAR':'YOK')+'</p><p><b>Arayan Tip:</b> '+d.callerType+'</p><p class="muted">'+d.webAi+'</p></div>'+
 '<div class="glass"><h2>🤖 AI Yorumu</h2><p class="muted">'+d.aiComment+'</p></div>'+
 '<div class="glass"><h2>📇 Numara Kimliği</h2><p><b>Operatör:</b> '+d.operator+'</p><p><b>Şehir:</b> '+d.city+'</p><p><b>Muhtemel sahip:</b> '+d.possibleOwner+'</p><p><b>Muhtemel firma:</b> '+d.possibleCompany+'</p><p><b>Güven:</b> '+d.confidence+'</p></div>'+
+'<div class="glass"><h2>🔬 Tarama Adımları</h2><ul>'+d.scanSteps.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>'+
 '<div class="glass"><h2>🚨 Bulgular</h2><ul>'+d.findings.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>'+
 '<div class="glass"><h2>🧬 Risk Kelimeleri</h2>'+d.keywords.map(x=>'<span class="tag">'+x+'</span>').join('')+'</div>'+
 '<div class="glass"><h2>🔎 Google Snippet Görünümü</h2>'+d.googleCards.map(x=>'<a target="_blank" href="'+x.link+'"><div class="gcard"><div class="gtitle">'+x.title+'</div><div class="gurl">google.com/search?q='+x.query+'</div><div class="gsnip">'+x.snippet+'</div></div></a>').join('')+'</div>'+
