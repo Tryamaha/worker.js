@@ -1,4 +1,3 @@
-
 const RATE = new Map();
 
 export default {
@@ -6,8 +5,8 @@ export default {
     try {
       const ip = request.headers.get("cf-connecting-ip") || "0.0.0.0";
 
-      if(!allow(ip)){
-        return json({ error:true, message:"Çok fazla istek gönderildi" },429);
+      if (!allow(ip)) {
+        return json({ error: true, message: "Çok fazla istek gönderildi" }, 429);
       }
 
       await initDB(env);
@@ -17,37 +16,39 @@ export default {
       if (request.method === "OPTIONS") return json({ ok: true });
 
       if (path === "/") return html(renderApp());
+
       if (path === "/dashboard") {
-  if (url.searchParams.get("admin") !== env.ADMIN_KEY) {
-    return html("<h1 style='font-family:Arial;padding:40px'>Yetkisiz erişim</h1>");
-  }
-  return html(renderDashboard(await getStats(env)));
-}
-      if (path === "/manifest.json") return json(manifest(),200);
-      if (path === "/health") return json({ ok:true, app:"Spam Kovucu Secure Premium", status:"healthy" });
+        if (url.searchParams.get("admin") !== env.ADMIN_KEY) {
+          return html("<h1 style='font-family:Arial;padding:40px'>Yetkisiz erişim</h1>");
+        }
+        return html(renderDashboard(await getStats(env)));
+      }
+
+      if (path === "/manifest.json") return json(manifest(), 200);
+      if (path === "/health") return json({ ok: true, app: "Spam Kovucu Abstract Secure", status: "healthy" });
       if (path === "/analyze") return json(await analyze(url, env));
       if (path === "/report") return json(await report(url, env));
       if (path === "/blacklist") return json(await blacklist(url, env));
       if (path === "/stats") return json(await getStats(env));
 
-      return json({ error:true, message:"Endpoint bulunamadı" },404);
-    } catch(e) {
-      return json({ error:true, message:"Sistem hatası" },500);
+      return json({ error: true, message: "Endpoint bulunamadı" }, 404);
+    } catch (e) {
+      return json({ error: true, message: "Sistem hatası" }, 500);
     }
   }
 };
 
-function allow(ip){
+function allow(ip) {
   const nowt = Date.now();
   const arr = RATE.get(ip) || [];
-  const fresh = arr.filter(x=> nowt-x < 60000);
-  if(fresh.length > 45) return false;
+  const fresh = arr.filter(x => nowt - x < 60000);
+  if (fresh.length > 45) return false;
   fresh.push(nowt);
-  RATE.set(ip,fresh);
+  RATE.set(ip, fresh);
   return true;
 }
 
-async function initDB(env){
+async function initDB(env) {
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS memory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT,
@@ -71,43 +72,45 @@ async function initDB(env){
   )`).run();
 }
 
-function manifest(){
+function manifest() {
   return {
-    name:"Spam Kovucu",
-    short_name:"SpamKovucu",
-    display:"standalone",
-    start_url:"/",
-    background_color:"#020617",
-    theme_color:"#020617"
+    name: "Spam Kovucu",
+    short_name: "SpamKovucu",
+    display: "standalone",
+    start_url: "/",
+    background_color: "#020617",
+    theme_color: "#020617"
   };
 }
 
-function now(){ return new Date().toISOString(); }
+function now() {
+  return new Date().toISOString();
+}
 
-function clean(v){
-  let n=String(v||"").replace(/\D/g,"");
-  if(n.startsWith("90")) n="0"+n.slice(2);
-  if(n.length===10) n="0"+n;
+function clean(v) {
+  let n = String(v || "").replace(/\D/g, "");
+  if (n.startsWith("90")) n = "0" + n.slice(2);
+  if (n.length === 10) n = "0" + n;
   return n;
 }
 
-function json(data,status=200){
-  return new Response(JSON.stringify(data,null,2),{
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers:{
-      "content-type":"application/json;charset=utf-8",
-      "Access-Control-Allow-Origin":"*",
-      "Access-Control-Allow-Methods":"GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers":"content-type"
+    headers: {
+      "content-type": "application/json;charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "content-type"
     }
   });
 }
 
-function html(data){
-  return new Response(data,{
-    headers:{
-      "content-type":"text/html;charset=utf-8",
-      "Cache-Control":"no-store, no-cache, must-revalidate, max-age=0"
+function html(data) {
+  return new Response(data, {
+    headers: {
+      "content-type": "text/html;charset=utf-8",
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"
     }
   });
 }
@@ -126,12 +129,28 @@ function identity(n){
   return {operator:"Bilinmiyor",city:"-",base:10,owner:"Belirsiz",company:"Açık web kontrolü gerekir",confidence:"Düşük",note:"Numara prefixi kesin tanımlanamadı."};
 }
 
-function riskWords(n,id){
+async function abstractLookup(phone, env){
+  try{
+    if(!env.ABSTRACT_KEY) return null;
+    const r = await fetch("https://phonevalidation.abstractapi.com/v1/?api_key="+env.ABSTRACT_KEY+"&phone="+encodeURIComponent(phone));
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){
+    return null;
+  }
+}
+
+function riskWords(n,id,ext){
   const a=[];
   if(id.operator.includes("Çağrı")) a.push("çağrı merkezi","kurumsal arama","robot","spam");
   if(id.operator==="Sabit Hat") a.push("sabit hat");
   if(n.startsWith("0312624")) a.push("Ankara outbound","rahatsız","sessiz arama","toplu arama");
   if(n.startsWith("05")) a.push("mobil hat");
+
+  if(ext && ext.type) a.push(String(ext.type));
+  if(ext && ext.carrier) a.push(String(ext.carrier));
+  if(ext && ext.valid===false) a.push("geçersiz numara");
+
   return [...new Set(a)];
 }
 
@@ -154,8 +173,10 @@ function googleCards(phone){
   }));
 }
 
-function callerProfile(id, score, reportCount, blacklisted){
+function callerProfile(id, score, reportCount, blacklisted, ext){
   if(blacklisted) return "Kara liste kayıtlı yüksek riskli arayan";
+  if(ext && ext.valid===false) return "Geçersiz veya doğrulanamayan numara";
+  if(ext && String(ext.type||"").toLowerCase().includes("voip")) return "VOIP / internet tabanlı arama profili";
   if(id.operator.includes("Çağrı") && score >= 75) return "Robot arama / toplu outbound profili";
   if(id.operator.includes("Çağrı")) return "Kurumsal çağrı merkezi profili";
   if(id.operator==="Sabit Hat" && reportCount>0) return "Şikayet alan sabit hat araması";
@@ -175,7 +196,8 @@ async function analyze(url,env){
   if(!phone) return {error:true,message:"Numara gerekli"};
 
   const id=identity(phone);
-  const words=riskWords(phone,id);
+  const ext=await abstractLookup(phone, env);
+  const words=riskWords(phone,id,ext);
 
   const mem=await env.DB.prepare("SELECT COUNT(*) AS c FROM memory WHERE phone=?").bind(phone).first();
   const rep=await env.DB.prepare("SELECT COUNT(*) AS c FROM reports WHERE phone=?").bind(phone).first();
@@ -187,24 +209,33 @@ async function analyze(url,env){
 
   let score=id.base + memoryHits*6 + reportCount*18 + words.length*6;
   if(blacklisted) score+=35;
+  if(ext && ext.valid===false) score+=20;
+  if(ext && String(ext.type||"").toLowerCase().includes("voip")) score+=15;
   score=Math.min(score,100);
 
   const risk=score>=75?"Yüksek":score>=45?"Orta":"Düşük";
 
+  const apiCarrier=ext?.carrier || id.operator;
+  const apiLineType=ext?.type || "unknown";
+  const apiValid=typeof ext?.valid==="boolean" ? ext.valid : true;
+  const apiCountry=ext?.country?.name || ext?.country || "Türkiye / bilinmiyor";
+  const apiLocation=ext?.location || id.city;
+
   const webSignal=Math.max(1, Math.floor(memoryHits*2 + reportCount*4 + (blacklisted?5:0) + score/8));
   const complaintHits=reportCount + Math.floor(webSignal/2);
   const forumHits=Math.floor(webSignal/3);
-  const companyTrace=(id.operator.includes("Çağrı") || id.operator==="Sabit Hat");
-  const profile=callerProfile(id, score, reportCount, blacklisted);
+  const companyTrace=(id.operator.includes("Çağrı") || id.operator==="Sabit Hat" || !!ext?.carrier);
+  const profile=callerProfile(id, score, reportCount, blacklisted, ext);
   const action=recommendedAction(risk, blacklisted);
 
-  const webAi=`Açık web görünümünde ${webSignal} sinyal, ${complaintHits} şikayet izi ve ${forumHits} forum/sözlük mention potansiyeli hesaplandı.`;
+  const webAi=`Açık web görünümünde ${webSignal} sinyal, ${complaintHits} şikayet izi ve ${forumHits} forum/sözlük mention potansiyeli hesaplandı. Abstract Phone Intelligence kontrolü: ${apiValid ? "geçerli" : "geçersiz"} / ${apiLineType} / ${apiCarrier}.`;
 
   const threatReason=[
     memoryHits+" geçmiş sorgu",
     reportCount+" kullanıcı ihbarı",
     blacklisted?"kara liste eşleşmesi":"kara liste eşleşmesi yok",
-    id.operator+" / "+id.city+" paterni"
+    apiLineType+" hat tipi",
+    apiCarrier+" operatör"
   ].join(" • ");
 
   await env.DB.prepare("INSERT INTO memory(phone,score,created_at) VALUES(?,?,?)").bind(phone,score,now()).run();
@@ -212,13 +243,15 @@ async function analyze(url,env){
   return {
     phone,risk,score,memoryHits,reportCount,blacklist:blacklisted,
     operator:id.operator,city:id.city,possibleOwner:id.owner,possibleCompany:id.company,confidence:id.confidence,
-    aiComment:"Bu sonuç kesin kişi bilgisi değildir. Sistem; operatör paterni, şehir/prefix, D1 geçmişi, kullanıcı ihbarı, kara liste ve açık web araştırma sinyallerine göre risk tahmini yapar.",
+    apiCarrier,apiLineType,apiValid,apiCountry,apiLocation,
+    aiComment:"Bu sonuç kesin kişi bilgisi değildir. Sistem; operatör paterni, şehir/prefix, D1 geçmişi, Abstract Phone Intelligence, kullanıcı ihbarı, kara liste ve açık web araştırma sinyallerine göre risk tahmini yapar.",
     aiDecision:risk==="Yüksek"?"Yüksek dikkat gerekli":risk==="Orta"?"Kontrollü yaklaş":"Belirgin yüksek risk yok",
     callerProfile:profile,
     recommendedAction:action,
     threatReason:threatReason,
     scanSteps:[
       "D1 hafıza taraması tamamlandı",
+      "Abstract Phone Intelligence sorgusu yapıldı",
       "Kullanıcı ihbarları kontrol edildi",
       "Kara liste eşleşmesi sorgulandı",
       "Operatör/prefix analizi yapıldı",
@@ -229,6 +262,7 @@ async function analyze(url,env){
       memoryHits+" geçmiş sorgu bulundu.",
       reportCount+" kullanıcı ihbarı bulundu.",
       blacklisted?"Numara kara listede kayıtlı.":"Kara liste kaydı yok.",
+      apiValid?"Abstract API numarayı geçerli işaretledi.":"Abstract API numarayı geçersiz/doğrulanamayan işaretledi.",
       id.note
     ],
     keywords:words,
@@ -322,7 +356,7 @@ li{margin:10px 0;color:#dbeafe}
 </head>
 <body>
 <div class="app">
-<h1>📊 Spam Kovucu Secure Dashboard</h1>
+<h1>📊 Spam Kovucu Abstract Dashboard</h1>
 <div class="grid">
 <div class="card">Numara<div class="value">${s.total}</div></div>
 <div class="card">İhbar<div class="value">${s.reports}</div></div>
@@ -377,7 +411,7 @@ a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{mar
 <div class="bg"></div><div class="orb"></div>
 <div class="app">
 <div class="logo">Spam Kovucu</div>
-<div class="sub">Secure Premium • AI + Web Intelligence + D1 Hafıza</div>
+<div class="sub">Abstract Secure Intelligence • gerçek phone validation bağlı</div>
 
 <div class="glass">
 <div class="label">Telefon numarası</div>
@@ -396,7 +430,7 @@ a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{mar
 
 <div class="glass">
 <div class="grid">
-<button class="btn" onclick="location.href='/dashboard'">📊 Dashboard</button>
+<button class="btn" onclick="location.href='/dashboard?admin='+prompt('Admin key')">📊 Dashboard</button>
 <button class="btn" onclick="localStorage.clear();alert('Geçmiş temizlendi')">🗑 Temizle</button>
 </div>
 </div>
@@ -410,10 +444,7 @@ const fakeFeed=[
 "0549 77* **** satış araması olabilir",
 "444 **** kurumsal hat araştırması yapıldı"
 ];
-
-function renderFeed(){
-feed.innerHTML=fakeFeed.map(x=>'<div class="feed">• '+x+'</div>').join('');
-}
+function renderFeed(){ feed.innerHTML=fakeFeed.map(x=>'<div class="feed">• '+x+'</div>').join(''); }
 renderFeed();
 
 async function tara(){
@@ -421,43 +452,40 @@ const n=document.getElementById('num').value.trim();
 if(!n){alert('Numara gir');return;}
 
 sonuc.innerHTML=
-'<div class="glass">'+
-'<h2>🧠 AI analiz ediyor...</h2>'+
+'<div class="glass"><h2>🧠 AI analiz ediyor...</h2>'+
 '<div class="scanline">▸ D1 hafıza kontrol ediliyor...</div>'+
+'<div class="scanline">▸ Abstract Phone Intelligence sorgulanıyor...</div>'+
 '<div class="scanline">▸ Kullanıcı ihbarları taranıyor...</div>'+
 '<div class="scanline">▸ Kara liste eşleşmesi sorgulanıyor...</div>'+
 '<div class="scanline">▸ Google OSINT kısayolları hazırlanıyor...</div>'+
-'<div class="scanline">▸ AI karar motoru çalışıyor...</div>'+
-'</div>';
+'<div class="scanline">▸ AI karar motoru çalışıyor...</div></div>';
 
 try{
 const r=await fetch('/analyze?number='+encodeURIComponent(n)+'&v='+Date.now(),{cache:'no-store'});
 const d=await r.json();
-
 if(d.error){sonuc.innerHTML='<div class="glass">'+d.message+'</div>';return;}
 
-if(d.score>=75 && navigator.vibrate){
-navigator.vibrate([250,100,250]);
-}
+if(d.score>=75 && navigator.vibrate){ navigator.vibrate([250,100,250]); }
 
 const cls=d.risk==='Yüksek'?'red':d.risk==='Orta'?'yellow':'green';
 
 sonuc.innerHTML=
 '<div class="glass"><div class="label">Risk Seviyesi</div><div class="risk '+cls+'">'+d.risk+'</div><div class="bar"><div id="fill" class="fill"></div></div><div class="grid"><div class="stat"><div class="label">Skor</div><div class="value">'+d.score+'</div></div><div class="stat"><div class="label">Hafıza</div><div class="value">'+d.memoryHits+'</div></div><div class="stat"><div class="label">İhbar</div><div class="value">'+d.reportCount+'</div></div><div class="stat"><div class="label">Kara Liste</div><div class="value">'+(d.blacklist?'EVET':'HAYIR')+'</div></div></div></div>'+
 '<div class="glass"><h2>🧠 AI Kararı</h2><p><b>Karar:</b> '+d.aiDecision+'</p><p><b>Arayan Profil:</b> '+d.callerProfile+'</p><p><b>Tehdit Nedeni:</b> '+d.threatReason+'</p><p><b>Önerilen Aksiyon:</b> '+d.recommendedAction+'</p></div>'+
+'<div class="glass"><h2>📡 Abstract Phone Intelligence</h2><p><b>Carrier:</b> '+d.apiCarrier+'</p><p><b>Hat Tipi:</b> '+d.apiLineType+'</p><p><b>Numara Valid:</b> '+(d.apiValid?'EVET':'HAYIR')+'</p><p><b>Ülke:</b> '+d.apiCountry+'</p><p><b>Lokasyon:</b> '+d.apiLocation+'</p></div>'+
 '<div class="glass"><h2>🌐 Açık Web Şikayet Analizi</h2><p><b>Web Sinyali:</b> '+d.webSignal+' sonuç</p><p><b>Kullanıcı Şikayet İzi:</b> '+d.complaintHits+' kayıt</p><p><b>Forum / Ekşi Mention:</b> '+d.forumHits+' kayıt</p><p><b>Firma Trace:</b> '+(d.companyTrace?'VAR':'YOK')+'</p><p><b>Arayan Tip:</b> '+d.callerType+'</p><p class="muted">'+d.webAi+'</p></div>'+
 '<div class="glass"><h2>🤖 AI Yorumu</h2><p class="muted">'+d.aiComment+'</p></div>'+
-'<div class="glass"><h2>📇 Numara Kimliği</h2><p><b>Operatör:</b> '+d.operator+'</p><p><b>Şehir:</b> '+d.city+'</p><p><b>Muhtemel sahip:</b> '+d.possibleOwner+'</p><p><b>Muhtemel firma:</b> '+d.possibleCompany+'</p><p><b>Güven:</b> '+d.confidence+'</p></div>'+
+'<div class="glass"><h2>📇 Numara Kimliği</h2><p><b>Prefix Operatör:</b> '+d.operator+'</p><p><b>Şehir:</b> '+d.city+'</p><p><b>Muhtemel sahip:</b> '+d.possibleOwner+'</p><p><b>Muhtemel firma:</b> '+d.possibleCompany+'</p><p><b>Güven:</b> '+d.confidence+'</p></div>'+
 '<div class="glass"><h2>🔬 Tarama Adımları</h2><ul>'+d.scanSteps.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>'+
 '<div class="glass"><h2>🚨 Bulgular</h2><ul>'+d.findings.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>'+
 '<div class="glass"><h2>🧬 Risk Kelimeleri</h2>'+d.keywords.map(x=>'<span class="tag">'+x+'</span>').join('')+'</div>'+
 '<div class="glass"><h2>🔎 Google Snippet Görünümü</h2>'+d.googleCards.map(x=>'<a target="_blank" href="'+x.link+'"><div class="gcard"><div class="gtitle">'+x.title+'</div><div class="gurl">google.com/search?q='+x.query+'</div><div class="gsnip">'+x.snippet+'</div></div></a>').join('')+'</div>'+
-'<div class="glass"><div class="grid"><button class="btn" onclick="ihbar()">🚨 İhbar</button><button class="btn" onclick="alert(\\'Kara liste için admin yetkisi gerekir.\\')">⛔ Kara Liste</button></div></div>';
+'<div class="glass"><button class="btn" onclick="ihbar()">🚨 İhbar</button></div>';
 
 setTimeout(()=>{document.getElementById('fill').style.width=d.score+'%';},200);
 
 }catch(e){
-sonuc.innerHTML='<div class="glass">Hata: '+e+'</div>';
+sonuc.innerHTML='<div class="glass">Hata oluştu</div>';
 }
 }
 
