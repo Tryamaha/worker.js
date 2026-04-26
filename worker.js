@@ -17,7 +17,12 @@ export default {
       if (request.method === "OPTIONS") return json({ ok: true });
 
       if (path === "/") return html(renderApp());
-      if (path === "/dashboard") return html(renderDashboard(await getStats(env)));
+      if (path === "/dashboard") {
+  if (url.searchParams.get("admin") !== env.ADMIN_KEY) {
+    return html("<h1 style='font-family:Arial;padding:40px'>Yetkisiz erişim</h1>");
+  }
+  return html(renderDashboard(await getStats(env)));
+}
       if (path === "/manifest.json") return json(manifest(),200);
       if (path === "/health") return json({ ok:true, app:"Spam Kovucu Secure Premium", status:"healthy" });
       if (path === "/analyze") return json(await analyze(url, env));
