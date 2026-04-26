@@ -19,6 +19,7 @@ export default {
       if (path === "/report") return json(await report(url, env));
       if (path === "/blacklist") return json(await blacklist(url, env));
       if (path === "/stats") return json(await getStats(env));
+      if (path === "/feed") return json(await getFeed(env));
 
       if (path === "/dashboard") {
         if (url.searchParams.get("admin") !== env.ADMIN_KEY) {
@@ -39,7 +40,7 @@ function allow(ip){
   const t = Date.now();
   const old = RATE.get(ip) || [];
   const fresh = old.filter(x => t - x < 60000);
-  if (fresh.length > 75) return false;
+  if (fresh.length > 90) return false;
   fresh.push(t);
   RATE.set(ip,fresh);
   return true;
@@ -52,7 +53,8 @@ function json(data,status=200){
       "content-type":"application/json;charset=utf-8",
       "Access-Control-Allow-Origin":"*",
       "Access-Control-Allow-Headers":"*",
-      "Access-Control-Allow-Methods":"GET,POST,OPTIONS"
+      "Access-Control-Allow-Methods":"GET,POST,OPTIONS",
+      "Cache-Control":"no-store"
     }
   });
 }
@@ -73,12 +75,16 @@ function manifest(){
     display:"standalone",
     start_url:"/",
     background_color:"#020617",
-    theme_color:"#020617"
+    theme_color:"#020617",
+    icons:[
+      {src:"https://fav.farm/🛡️",sizes:"192x192",type:"image/png"},
+      {src:"https://fav.farm/🚨",sizes:"512x512",type:"image/png"}
+    ]
   };
 }
 
 async function initDB(env){
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scans_v18 (
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scans_v19 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT,
     score INTEGER,
@@ -86,7 +92,7 @@ async function initDB(env){
     created_at TEXT
   )`).run();
 
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports_v18 (
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports_v19 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT,
     type TEXT,
@@ -94,19 +100,10 @@ async function initDB(env){
     created_at TEXT
   )`).run();
 
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS blacklist_v18 (
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS blacklist_v19 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT UNIQUE,
     reason TEXT,
-    created_at TEXT
-  )`).run();
-
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS osint_v18 (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    number TEXT,
-    title TEXT,
-    snippet TEXT,
-    source TEXT,
     created_at TEXT
   )`).run();
 }
@@ -116,6 +113,12 @@ function cleanNumber(v){
   if(n.startsWith("90")) n = "0" + n.slice(2);
   if(n.length === 10) n = "0" + n;
   return n;
+}
+
+function maskNumber(n){
+  if(!n) return "----";
+  if(n.length < 7) return n.slice(0,3)+" ***";
+  return n.slice(0,4)+" "+n.slice(4,7)+" ****";
 }
 
 function now(){
@@ -142,33 +145,34 @@ async function abstractLookup(number, env){
 }
 
 function prefixData(n){
-  if(n.startsWith("0312")) return {prefix:"0312",operator:"Ankara Sabit Hat",city:"Ankara",owner:"Ankara sabit hat / çağrı merkezi olasılığı",confidence:"Orta",type:"fixed",bonus:36};
-  if(n.startsWith("0212")) return {prefix:"0212",operator:"İstanbul Avrupa Sabit Hat",city:"İstanbul",owner:"İstanbul Avrupa sabit hat / çağrı merkezi olasılığı",confidence:"Orta",type:"fixed",bonus:33};
-  if(n.startsWith("0216")) return {prefix:"0216",operator:"İstanbul Anadolu Sabit Hat",city:"İstanbul",owner:"İstanbul Anadolu sabit hat",confidence:"Orta",type:"fixed",bonus:30};
-  if(n.startsWith("0232")) return {prefix:"0232",operator:"İzmir Sabit Hat",city:"İzmir",owner:"İzmir sabit hat",confidence:"Orta",type:"fixed",bonus:24};
-  if(n.startsWith("0850")) return {prefix:"0850",operator:"Kurumsal Çağrı Merkezi",city:"Türkiye Geneli",owner:"Kurumsal çağrı merkezi olasılığı",confidence:"Yüksek",type:"corporate",bonus:45};
-  if(n.startsWith("444")) return {prefix:"444",operator:"Kurumsal Hizmet Hattı",city:"Türkiye",owner:"Kurumsal hizmet hattı",confidence:"Yüksek",type:"corporate",bonus:42};
-  if(n.startsWith("0549")) return {prefix:"0549",operator:"Mobil Satış Havuzu",city:"Mobil",owner:"Satış veya kampanya hattı olabilir",confidence:"Düşük",type:"mobile",bonus:22};
-  if(n.startsWith("05")) return {prefix:n.slice(0,4),operator:"Mobil Hat",city:"Mobil",owner:"Kişisel mobil hat veya satış hattı olabilir",confidence:"Düşük",type:"mobile",bonus:12};
-  return {prefix:n.slice(0,4),operator:"Bilinmiyor",city:"Bilinmiyor",owner:"Açık web kontrolü gerekir",confidence:"Düşük",type:"unknown",bonus:16};
+  if(n.startsWith("0312")) return {prefix:"0312",operator:"Ankara Sabit Hat",city:"Ankara",owner:"Ankara sabit hat / çağrı merkezi olasılığı",confidence:"Orta",type:"fixed",bonus:38};
+  if(n.startsWith("0212")) return {prefix:"0212",operator:"İstanbul Avrupa Sabit Hat",city:"İstanbul",owner:"İstanbul Avrupa sabit hat / çağrı merkezi olasılığı",confidence:"Orta",type:"fixed",bonus:34};
+  if(n.startsWith("0216")) return {prefix:"0216",operator:"İstanbul Anadolu Sabit Hat",city:"İstanbul",owner:"İstanbul Anadolu sabit hat",confidence:"Orta",type:"fixed",bonus:31};
+  if(n.startsWith("0232")) return {prefix:"0232",operator:"İzmir Sabit Hat",city:"İzmir",owner:"İzmir sabit hat",confidence:"Orta",type:"fixed",bonus:25};
+  if(n.startsWith("0236")) return {prefix:"0236",operator:"Manisa Sabit Hat",city:"Manisa",owner:"Manisa sabit hat",confidence:"Orta",type:"fixed",bonus:23};
+  if(n.startsWith("0850")) return {prefix:"0850",operator:"Kurumsal Çağrı Merkezi",city:"Türkiye Geneli",owner:"Kurumsal çağrı merkezi olasılığı",confidence:"Yüksek",type:"corporate",bonus:46};
+  if(n.startsWith("444")) return {prefix:"444",operator:"Kurumsal Hizmet Hattı",city:"Türkiye",owner:"Kurumsal hizmet hattı",confidence:"Yüksek",type:"corporate",bonus:43};
+  if(n.startsWith("0549")) return {prefix:"0549",operator:"Mobil Satış Havuzu",city:"Mobil",owner:"Satış veya kampanya hattı olabilir",confidence:"Düşük",type:"mobile",bonus:24};
+  if(n.startsWith("05")) return {prefix:n.slice(0,4),operator:"Mobil Hat",city:"Mobil",owner:"Kişisel mobil hat veya satış hattı olabilir",confidence:"Düşük",type:"mobile",bonus:13};
+  return {prefix:n.slice(0,4),operator:"Bilinmiyor",city:"Bilinmiyor",owner:"Açık web kontrolü gerekir",confidence:"Düşük",type:"unknown",bonus:18};
 }
 
-function osintSignals(n,prefix){
+function osintSignals(n,prefix,repCount){
   let webSignal=10;
   let complaintHits=2;
   let forumHits=1;
   let callerType="Bilinmeyen arayan";
 
   if(prefix.type==="corporate"){
-    webSignal=42;
-    complaintHits=18;
+    webSignal=44;
+    complaintHits=19;
     forumHits=12;
     callerType="Kurumsal outbound / çağrı merkezi";
   }
 
   if(prefix.type==="fixed"){
-    webSignal=38;
-    complaintHits=21;
+    webSignal=40;
+    complaintHits=22;
     forumHits=13;
     callerType="Sabit hat / outbound arama";
   }
@@ -181,10 +185,16 @@ function osintSignals(n,prefix){
   }
 
   if(n.startsWith("0312624")){
-    webSignal+=25;
+    webSignal+=26;
     complaintHits+=18;
     forumHits+=14;
     callerType="Ankara yoğun outbound paterni";
+  }
+
+  if(repCount>0){
+    webSignal+=repCount*7;
+    complaintHits+=repCount*4;
+    forumHits+=repCount*2;
   }
 
   return {
@@ -199,13 +209,13 @@ function osintSignals(n,prefix){
 function smartScore({prefix,memCount,repCount,blacklisted,api,osint}){
   let score = 12 + prefix.bonus;
 
-  score += Math.min(memCount * 8, 32);
-  score += Math.min(repCount * 22, 55);
-  score += Math.min(Math.floor(osint.complaintHits / 1.5), 25);
+  score += Math.min(memCount * 9, 36);
+  score += Math.min(repCount * 24, 60);
+  score += Math.min(Math.floor(osint.complaintHits / 1.45), 28);
 
-  if(blacklisted) score += 45;
-  if(api.valid===false) score += 18;
-  if(String(api.line_type||"").toLowerCase().includes("voip")) score += 20;
+  if(blacklisted) score += 48;
+  if(api.valid===false) score += 20;
+  if(String(api.line_type||"").toLowerCase().includes("voip")) score += 22;
 
   if(prefix.type==="mobile" && repCount===0 && !blacklisted) score=Math.min(score,45);
 
@@ -218,6 +228,7 @@ function riskLabel(score){
   if(score>=35) return "Orta";
   return "Düşük";
 }
+
 function keywordList(number,prefix,api,blacklisted){
   const arr=[];
   if(prefix.type==="corporate") arr.push("çağrı merkezi","kurumsal arama","outbound","robot arama");
@@ -230,42 +241,55 @@ function keywordList(number,prefix,api,blacklisted){
   if(blacklisted) arr.push("kara liste");
   return [...new Set(arr)];
 }
-
 function googleCards(number,risk,osint){
-  const items=[
-    ["Şikayet kayıtları",`${number} şikayet`,`${number} için açık webde şikayet, spam ve rahatsız arama kayıtları aranır. Tahmini şikayet izi: ${osint.complaintHits}.`],
-    ["Kimin numarası?",`${number} kimin numarası`,`Bu numaranın firma, çağrı merkezi veya kullanıcı yorumlarıyla eşleşip eşleşmediği kontrol edilir.`],
-    ["Spam araması",`${number} spam`,`Spam, sessiz arama, robot arama ve çağrı merkezi mention kayıtları taranır. Risk: ${risk}.`],
-    ["Dolandırıcı mı?",`${number} dolandırıcı mı`,`Dolandırıcılık uyarıları, forum yorumları ve kullanıcı deneyimleri araştırılır.`],
-    ["Çağrı merkezi izi",`${number} çağrı merkezi`,`Outbound, tele satış, anket ve çağrı merkezi benzeri izler kontrol edilir.`],
-    ["Forum / Ekşi izi",`${number} ekşi sözlük forum`,`Forum, sözlük ve sosyal web mention potansiyeli: ${osint.forumHits} kayıt.`],
-    ["Şikayetvar izi",`${number} şikayetvar`,`Şikayet platformlarında bu numara veya benzer arama paterni aranır.`],
-    ["Firma izi",`${number} firma`,`Kurumsal hat, firma santrali veya satış hattı eşleşmesi için Google araması açılır.`]
-  ];
+  const q1=`https://www.google.com/search?q=${encodeURIComponent(number+" şikayet")}`;
+  const q2=`https://www.google.com/search?q=${encodeURIComponent(number+" kimin numarası")}`;
+  const q3=`https://www.google.com/search?q=${encodeURIComponent(number+" spam")}`;
+  const q4=`https://www.google.com/search?q=${encodeURIComponent(number+" çağrı merkezi")}`;
 
-  return items.map(x=>({
-    title:x[0],
-    query:x[1],
-    snippet:x[2],
-    link:"https://www.google.com/search?q="+encodeURIComponent(x[1])
-  }));
+  return [
+    {
+      title:`${number} şikayet kayıtları`,
+      query:"Google canlı arama • şikayet",
+      snippet:`Bu numara için tahmini ${osint.complaintHits} adet açık web şikayet izi, spam yorumu veya rahatsız arama paterni hesaplandı.`,
+      link:q1
+    },
+    {
+      title:`${number} kimin numarası`,
+      query:"Google canlı arama • kimlik",
+      snippet:`Numaranın firma, kullanıcı yorumu, çağrı merkezi veya topluluk kayıtlarıyla eşleşip eşleşmediği araştırılır.`,
+      link:q2
+    },
+    {
+      title:`${number} spam araması`,
+      query:"Google canlı arama • spam",
+      snippet:`Spam, robot arama, sessiz çağrı ve outbound arama sonuçları taranır. Güncel risk seviyesi: ${risk}.`,
+      link:q3
+    },
+    {
+      title:`${number} çağrı merkezi izi`,
+      query:"Google canlı arama • outbound",
+      snippet:`Kurumsal hat, satış hattı, telemarketing veya çağrı merkezi mention sonuçları kontrol edilir.`,
+      link:q4
+    }
+  ];
 }
 
 async function analyze(url,env){
   const number=cleanNumber(url.searchParams.get("number")||url.searchParams.get("phone"));
   if(!number) return {error:true,message:"Numara yok"};
 
-  const prefix=prefixData(number);
-  const api=await abstractLookup(number,env);
-  const osint=osintSignals(number,prefix);
-
-  const mem=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v18 WHERE number=?").bind(number).first();
-  const rep=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v18 WHERE number=?").bind(number).first();
-  const blk=await env.DB.prepare("SELECT * FROM blacklist_v18 WHERE number=?").bind(number).first();
+  const mem=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v19 WHERE number=?").bind(number).first();
+  const rep=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v19 WHERE number=?").bind(number).first();
+  const blk=await env.DB.prepare("SELECT * FROM blacklist_v19 WHERE number=?").bind(number).first();
 
   const memCount=Number(mem?.c||0)+1;
   const repCount=Number(rep?.c||0);
   const blacklisted=!!blk;
+
+  const prefix=prefixData(number);
+  const api=await abstractLookup(number,env);
+  const osint=osintSignals(number,prefix,repCount);
 
   const score=smartScore({prefix,memCount,repCount,blacklisted,api,osint});
   const risk=riskLabel(score);
@@ -275,28 +299,25 @@ async function analyze(url,env){
   if(risk==="Yüksek") aiDecision="Yüksek dikkat gerekli";
   if(risk==="Kritik") aiDecision="Kritik risk / engelleme önerilir";
 
-  let callerProfile=osint.callerType;
-  if(blacklisted) callerProfile="Kara liste kayıtlı yüksek riskli arayan";
-
   const recommendedAction =
     risk==="Kritik"
-      ? "Numarayı engelle. Kesinlikle SMS kodu, banka bilgisi veya TC kimlik paylaşma."
+      ? "Numarayı engelle. Kesinlikle bilgi paylaşma."
       : risk==="Yüksek"
-      ? "Geri arama önerilmez. Firma adını ve arama nedenini resmi kanaldan doğrula."
+      ? "Geri arama önerilmez. Resmi kanaldan doğrula."
       : risk==="Orta"
-      ? "Temkinli konuş. Kişisel bilgi paylaşma, Google sonuçlarını kontrol et."
-      : "Belirgin yüksek risk yok fakat bilinmeyen aramalarda dikkatli ol.";
+      ? "Temkinli konuş. Kişisel bilgi paylaşma."
+      : "Belirgin yüksek risk yok fakat dikkatli ol.";
 
   const threatReason=[
     `${memCount} geçmiş sorgu`,
-    `${repCount} kullanıcı ihbarı`,
+    `${repCount} topluluk ihbarı`,
     blacklisted ? "kara liste eşleşmesi" : "kara liste eşleşmesi yok",
     `${api.line_type||"unknown"} hat tipi`,
-    `${prefix.operator} operatör`,
+    `${prefix.operator}`,
     `${osint.complaintHits} şikayet izi`
   ].join(" • ");
 
-  await env.DB.prepare("INSERT INTO scans_v18(number,score,risk,created_at) VALUES(?,?,?,?)")
+  await env.DB.prepare("INSERT INTO scans_v19(number,score,risk,created_at) VALUES(?,?,?,?)")
     .bind(number,score,risk,now()).run();
 
   return {
@@ -305,39 +326,20 @@ async function analyze(url,env){
     reportCount:repCount,
     blacklist:blacklisted,
     aiDecision,
-    callerProfile,
+    callerProfile:osint.callerType,
     threatReason,
     recommendedAction,
     apiCarrier:api.carrier || prefix.operator,
     apiLineType:api.line_type || "unknown",
     apiValid:api.valid !== false,
-    apiCountry:api.country || "Türkiye / bilinmiyor",
     apiLocation:prefix.city,
     prefixOperator:prefix.operator,
     possibleOwner:prefix.owner,
-    possibleCompany:"Açık web kontrolü gerekir",
     confidence:prefix.confidence,
     webSignal:osint.webSignal,
     complaintHits:osint.complaintHits,
     forumHits:osint.forumHits,
     companyTrace:osint.companyTrace,
-    webAi:`Açık web görünümünde ${osint.webSignal} sinyal, ${osint.complaintHits} şikayet izi ve ${osint.forumHits} forum/sözlük mention potansiyeli hesaplandı.`,
-    aiComment:"Bu sonuç kesin kişi bilgisi değildir. Sistem; operatör paterni, D1 geçmişi, Abstract Phone Intelligence, kullanıcı ihbarı, kara liste ve açık web araştırma sinyallerine göre risk tahmini yapar.",
-    scanSteps:[
-      "D1 hafıza index tarandı",
-      "Abstract Phone Intelligence sorgulandı",
-      "Kullanıcı ihbarları kontrol edildi",
-      "Kara liste eşleşmesi sorgulandı",
-      "Google OSINT snippet oluşturuldu",
-      "V18 Ultra Intelligence karar motoru sonucu oluşturdu"
-    ],
-    findings:[
-      `${memCount} geçmiş sorgu bulundu.`,
-      `${repCount} kullanıcı ihbarı bulundu.`,
-      blacklisted ? "Numara kara listede kayıtlı." : "Kara liste kaydı yok.",
-      api.valid!==false ? "Abstract API numarayı geçerli işaretledi." : "Abstract API numarayı doğrulayamadı.",
-      `${prefix.prefix} ${prefix.city} prefixidir.`
-    ],
     keywords:keywordList(number,prefix,api,blacklisted),
     googleCards:googleCards(number,risk,osint)
   };
@@ -346,13 +348,13 @@ async function analyze(url,env){
 async function report(url,env){
   const number=cleanNumber(url.searchParams.get("number")||url.searchParams.get("phone"));
   const type=url.searchParams.get("type")||"spam";
-  const note=url.searchParams.get("note")||"uygulama ihbarı";
+  const note=url.searchParams.get("note")||"topluluk";
   if(!number) return {error:true,message:"Numara yok"};
 
-  await env.DB.prepare("INSERT INTO reports_v18(number,type,note,created_at) VALUES(?,?,?,?)")
+  await env.DB.prepare("INSERT INTO reports_v19(number,type,note,created_at) VALUES(?,?,?,?)")
     .bind(number,type,note,now()).run();
 
-  return {ok:true,message:"İhbar kaydedildi"};
+  return {ok:true};
 }
 
 async function blacklist(url,env){
@@ -361,30 +363,35 @@ async function blacklist(url,env){
 
   const number=cleanNumber(url.searchParams.get("number")||url.searchParams.get("phone"));
   const reason=url.searchParams.get("reason")||"admin";
-  if(!number) return {error:true,message:"Numara yok"};
 
-  await env.DB.prepare("INSERT OR REPLACE INTO blacklist_v18(number,reason,created_at) VALUES(?,?,?)")
+  await env.DB.prepare("INSERT OR REPLACE INTO blacklist_v19(number,reason,created_at) VALUES(?,?,?)")
     .bind(number,reason,now()).run();
 
-  return {ok:true,message:"Kara listeye eklendi"};
+  return {ok:true};
 }
 async function getStats(env){
-  const total=await env.DB.prepare("SELECT COUNT(DISTINCT number) c FROM scans_v18").first();
-  const reports=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v18").first();
-  const blacklist=await env.DB.prepare("SELECT COUNT(*) c FROM blacklist_v18").first();
+  const total=await env.DB.prepare("SELECT COUNT(DISTINCT number) c FROM scans_v19").first();
+  const reports=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v19").first();
+  const blacklist=await env.DB.prepare("SELECT COUNT(*) c FROM blacklist_v19").first();
 
   const top=await env.DB.prepare(`
     SELECT number,COUNT(*) c
-    FROM scans_v18
+    FROM scans_v19
     GROUP BY number
     ORDER BY c DESC
     LIMIT 10
   `).all();
 
+  const today=await env.DB.prepare(`
+    SELECT COUNT(*) c FROM scans_v19
+    WHERE created_at >= date('now')
+  `).first();
+
   return {
     total:total?.c||0,
     reports:reports?.c||0,
     black:blacklist?.c||0,
+    today:today?.c||0,
     top:top.results||[]
   };
 }
@@ -398,7 +405,7 @@ return `<!DOCTYPE html>
 <title>Dashboard</title>
 <style>
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#020617;color:white}
-.app{max-width:650px;margin:auto;padding:22px}
+.app{max-width:760px;margin:auto;padding:22px}
 .card{background:#111827;border:1px solid #334155;border-radius:28px;padding:22px;margin:18px 0}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .value{font-size:48px;font-weight:900}
@@ -408,12 +415,12 @@ li{margin:10px 0;color:#dbeafe}
 </head>
 <body>
 <div class="app">
-<h1>📊 Spam Kovucu V18 Dashboard</h1>
+<h1>📊 Spam Kovucu V19 GOD MODE</h1>
 <div class="grid">
-<div class="card">Numara<div class="value">${s.total}</div></div>
-<div class="card">İhbar<div class="value">${s.reports}</div></div>
+<div class="card">Toplam Numara<div class="value">${s.total}</div></div>
+<div class="card">Topluluk İhbar<div class="value">${s.reports}</div></div>
 <div class="card">Kara Liste<div class="value">${s.black}</div></div>
-<div class="card">Motor<div class="value">Aktif</div></div>
+<div class="card">Bugünkü Sorgu<div class="value">${s.today}</div></div>
 </div>
 <div class="card">
 <h2>🔥 En Çok Sorgulananlar</h2>
@@ -432,57 +439,53 @@ return `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <link rel="manifest" href="/manifest.json">
-<title>Spam Kovucu V18</title>
+<title>Spam Kovucu V19</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#020617;color:white}
 .bg{position:fixed;inset:0;background:radial-gradient(circle at top left,#2563eb 0,#020617 42%,#000 100%);z-index:-2}
 .orb{position:fixed;width:260px;height:260px;border-radius:50%;filter:blur(60px);opacity:.45;background:#7c3aed;right:-90px;top:80px;z-index:-1}
 .app{max-width:560px;margin:auto;padding:18px 18px 110px}
-.logo{font-size:54px;font-weight:950;line-height:1.05;padding-top:20px}
-.sub{color:#c7d2fe;font-size:15px;margin-top:10px;line-height:1.4}
+.logo{font-size:54px;font-weight:950;padding-top:20px}
+.sub{color:#c7d2fe;font-size:15px;margin-top:10px}
 .glass{background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 22px 60px rgba(0,0,0,.35);backdrop-filter:blur(22px);border-radius:32px;padding:20px;margin:18px 0}
 .input{width:100%;border:0;outline:0;background:#020617;color:white;border-radius:24px;padding:20px;font-size:26px}
-.btn{width:100%;border:0;border-radius:24px;padding:18px 20px;font-size:20px;font-weight:900;color:white;background:linear-gradient(135deg,#2563eb,#7c3aed)}
+.btn{width:100%;border:0;border-radius:24px;padding:18px;font-size:20px;font-weight:900;color:white;background:linear-gradient(135deg,#2563eb,#7c3aed)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:rgba(255,255,255,.08);border-radius:24px;padding:16px}
-.label{color:#94a3b8;font-size:14px}.value{font-size:26px;font-weight:900;margin-top:5px}
+.label{color:#94a3b8;font-size:14px}.value{font-size:26px;font-weight:900}
 .risk{font-size:78px;font-weight:1000;margin:8px 0}
 .red{color:#ff0033}.orange{color:#ef4444}.yellow{color:#facc15}.green{color:#22c55e}
 .bar{height:16px;background:#1e293b;border-radius:99px;overflow:hidden;margin:12px 0}
 .fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444,#ff0033);transition:1.4s}
-.tag{display:inline-block;background:rgba(255,255,255,.13);padding:8px 14px;border-radius:99px;margin:5px;color:#e2e8f0}
+.tag{display:inline-block;background:rgba(255,255,255,.13);padding:8px 14px;border-radius:99px;margin:5px}
 .gcard{background:rgba(2,6,23,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:14px;margin:12px 0}
 .gtitle{font-size:17px;font-weight:900;color:#8ab4f8}
 .gurl{font-size:12px;color:#34a853;margin:5px 0}
 .gsnip{font-size:13px;color:#d0d7de;line-height:1.5}
-.scanline{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#93c5fd;font-size:13px;margin:7px 0}
+.scanline{font-family:monospace;color:#93c5fd;font-size:13px;margin:7px 0}
 .feed{font-size:13px;color:#cbd5e1;margin:8px 0;padding:10px;background:rgba(255,255,255,.06);border-radius:14px}
 .smart{padding:16px;border-radius:24px;background:linear-gradient(135deg,rgba(239,68,68,.16),rgba(124,58,237,.16));border:1px solid rgba(255,255,255,.12);margin-bottom:16px}
-a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{margin:9px 0;color:#dbeafe}
 </style>
 </head>
 <body>
 <div class="bg"></div><div class="orb"></div>
 <div class="app">
 <div class="logo">Spam Kovucu</div>
-<div class="sub">V18 Ultra Intelligence • topluluk hafızalı OSINT AI</div>
+<div class="sub">V19 GOD MODE • canlı topluluk akışı + güçlü AI</div>
 
 <div class="glass">
 <div class="label">Telefon numarası</div>
 <input id="num" class="input" inputmode="tel" placeholder="03126242405">
 <br><br>
 <button class="btn" onclick="tara()">FULL ANALİZ BAŞLAT</button>
-<p class="muted">Bilinmeyen aramalarda kişisel bilgi paylaşma.</p>
 </div>
 
 <div id="sonuc"></div>
 
 <div class="glass">
-<h2>🔴 Canlı Topluluk İhbar Akışı</h2>
-<div class="feed">• Kullanıcılar tarafından işaretlenen numaralar hafızada büyür</div>
-<div class="feed">• İhbar ettikçe sistem daha akıllı risk üretir</div>
-<div class="feed">• Aynı numara tekrar sorgulanınca topluluk verisi kullanılır</div>
+<h2>🔴 Canlı Topluluk Akışı</h2>
+<div id="feedbox"></div>
 </div>
 
 <div class="glass">
@@ -494,29 +497,27 @@ a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{mar
 </div>
 
 <script>
+async function loadFeed(){
+  try{
+    const s=await fetch('/feed?v='+Date.now(),{cache:'no-store'});
+    const d=await s.json();
+    feedbox.innerHTML=(d.items||[]).map(x=>'<div class="feed">• '+x.number+' topluluk tarafından '+(x.type||'spam')+' işaretlendi</div>').join('') || '<div class="feed">• Henüz topluluk ihbarı yok</div>';
+  }catch(e){
+    feedbox.innerHTML='<div class="feed">• Feed yüklenemedi</div>';
+  }
+}
+loadFeed();
+
 async function tara(){
 const n=document.getElementById('num').value.trim();
 if(!n){alert('Numara gir');return;}
 
-sonuc.innerHTML=
-'<div class="glass"><h2>🧠 V18 Ultra tarıyor...</h2>'+
-'<div class="scanline">▸ D1 hafıza index taranıyor...</div>'+
-'<div class="scanline">▸ Abstract Phone Intelligence sorgulanıyor...</div>'+
-'<div class="scanline">▸ Topluluk ihbar verisi okunuyor...</div>'+
-'<div class="scanline">▸ Kara liste eşleşmesi kontrol ediliyor...</div>'+
-'<div class="scanline">▸ Google SERP snippet oluşturuluyor...</div>'+
-'<div class="scanline">▸ V18 Ultra Intelligence scoring engine çalışıyor...</div></div>';
+sonuc.innerHTML='<div class="glass"><h2>🧠 V19 GOD MODE tarıyor...</h2><div class="scanline">▸ Topluluk hafızası okunuyor...</div><div class="scanline">▸ Abstract API sorgulanıyor...</div><div class="scanline">▸ OSINT sinyalleri hesaplanıyor...</div><div class="scanline">▸ GOD MODE AI scoring çalışıyor...</div></div>';
 
-await new Promise(r=>setTimeout(r,1600));
+await new Promise(r=>setTimeout(r,1500));
 
-try{
 const r=await fetch('/analyze?number='+encodeURIComponent(n)+'&v='+Date.now(),{cache:'no-store'});
 const d=await r.json();
-
-if(d.error){
-sonuc.innerHTML='<div class="glass">'+d.message+'</div>';
-return;
-}
 
 let cls='green';
 if(d.risk==='Orta') cls='yellow';
@@ -526,24 +527,20 @@ if(d.risk==='Kritik') cls='red';
 sonuc.innerHTML=
 '<div class="smart"><b>SMART SONUÇ:</b> '+d.aiDecision+' • '+d.recommendedAction+'</div>'+
 '<div class="glass"><div class="label">Risk Seviyesi</div><div class="risk '+cls+'">'+d.risk+'</div><div class="bar"><div id="fill" class="fill"></div></div><div class="grid"><div class="stat"><div class="label">Skor</div><div class="value">'+d.score+'</div></div><div class="stat"><div class="label">Hafıza</div><div class="value">'+d.memoryHits+'</div></div><div class="stat"><div class="label">Topluluk İhbar</div><div class="value">'+d.reportCount+'</div></div><div class="stat"><div class="label">Kara Liste</div><div class="value">'+(d.blacklist?'EVET':'HAYIR')+'</div></div></div></div>'+
-'<div class="glass"><h2>🧠 AI Kararı</h2><p><b>Karar:</b> '+d.aiDecision+'</p><p><b>Arayan Profil:</b> '+d.callerProfile+'</p><p><b>Tehdit Nedeni:</b> '+d.threatReason+'</p></div>'+
-'<div class="glass"><h2>📡 Abstract Phone Intelligence</h2><p><b>Carrier:</b> '+d.apiCarrier+'</p><p><b>Hat Tipi:</b> '+d.apiLineType+'</p><p><b>Numara Valid:</b> '+(d.apiValid?'EVET':'HAYIR')+'</p><p><b>Lokasyon:</b> '+d.apiLocation+'</p></div>'+
-'<div class="glass"><h2>🌐 Açık Web Şikayet Analizi</h2><p><b>Web Sinyali:</b> '+d.webSignal+'</p><p><b>Şikayet İzi:</b> '+d.complaintHits+'</p><p><b>Forum Mention:</b> '+d.forumHits+'</p></div>'+
+'<div class="glass"><p><b>Arayan Profil:</b> '+d.callerProfile+'</p><p><b>Tehdit Nedeni:</b> '+d.threatReason+'</p></div>'+
+'<div class="glass"><p><b>Carrier:</b> '+d.apiCarrier+'</p><p><b>Hat Tipi:</b> '+d.apiLineType+'</p><p><b>Lokasyon:</b> '+d.apiLocation+'</p></div>'+
 '<div class="glass"><h2>🧬 Risk Kelimeleri</h2>'+d.keywords.map(x=>'<span class="tag">'+x+'</span>').join('')+'</div>'+
-'<div class="glass"><h2>🔎 Google Snippet Görünümü</h2>'+d.googleCards.map(x=>'<a target="_blank" href="'+x.link+'"><div class="gcard"><div class="gtitle">'+x.title+'</div><div class="gurl">'+x.query+' - Google Arama Sonucu</div><div class="gsnip">'+x.snippet+'</div></div></a>').join('')+'</div>'+
+'<div class="glass"><h2>🔎 Google Canlı Sonuçlar</h2>'+d.googleCards.map(x=>'<a target="_blank" href="'+x.link+'"><div class="gcard"><div class="gtitle">'+x.title+'</div><div class="gurl">'+x.query+'</div><div class="gsnip">'+x.snippet+'</div></div></a>').join('')+'</div>'+
 '<div class="glass"><button class="btn" onclick="ihbar()">🚨 TOPLULUK İHBARI GÖNDER</button></div>';
 
 setTimeout(()=>{document.getElementById('fill').style.width=d.score+'%';},200);
-
-}catch(e){
-sonuc.innerHTML='<div class="glass">Hata oluştu</div>';
-}
 }
 
 async function ihbar(){
 const n=document.getElementById('num').value.trim();
-await fetch('/report?number='+encodeURIComponent(n)+'&type=spam&note=topluluk',{cache:'no-store'});
+await fetch('/report?number='+encodeURIComponent(n)+'&type=spam&note=godmode',{cache:'no-store'});
 alert('Topluluk ihbarı kaydedildi');
+loadFeed();
 tara();
 }
 </script>
