@@ -38,7 +38,7 @@ function allow(ip){
   const t=Date.now();
   const old=RATE.get(ip)||[];
   const fresh=old.filter(x=>t-x<60000);
-  if(fresh.length>100) return false;
+  if(fresh.length>120) return false;
   fresh.push(t);
   RATE.set(ip,fresh);
   return true;
@@ -72,7 +72,7 @@ function manifest(){
     short_name:"Spam AI",
     display:"standalone",
     orientation:"portrait",
-    start_url:"/?v=24",
+    start_url:"/?v=25",
     scope:"/",
     background_color:"#020617",
     theme_color:"#020617",
@@ -84,7 +84,7 @@ function manifest(){
 }
 
 async function initDB(env){
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scans_v24 (
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scans_v25 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT,
     score INTEGER,
@@ -92,7 +92,7 @@ async function initDB(env){
     created_at TEXT
   )`).run();
 
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports_v24 (
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports_v25 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT,
     type TEXT,
@@ -150,7 +150,9 @@ function osintSignals(n,p,reportCount){
   if(p.type==="mobile"){web=12;complaints=4;forum=2;profile="Mobil hat / bireysel veya satış hattı";}
 
   if(n.startsWith("0312624")){
-    web+=26;complaints+=18;forum+=14;
+    web+=28;
+    complaints+=20;
+    forum+=14;
     profile="Ankara yoğun outbound / sessiz arama paterni";
   }
 
@@ -165,9 +167,10 @@ function osintSignals(n,p,reportCount){
 
 function smartScore({prefix,memoryCount,reportCount,api,osint}){
   let score=10+prefix.bonus;
+
   score+=Math.min(memoryCount*8,34);
   score+=Math.min(reportCount*24,60);
-  score+=Math.min(Math.floor(osint.complaints/1.6),26);
+  score+=Math.min(Math.floor(osint.complaints/1.6),28);
 
   if(api.valid===false) score+=18;
   if(String(api.line_type||"").toLowerCase().includes("voip")) score+=20;
@@ -192,7 +195,7 @@ function riskLabel(score){
 }
 function keywords(n,p,api,risk){
   const arr=[];
-  if(p.type==="corp") arr.push("kurumsal hat","müşteri hizmeti","çağrı merkezi");
+  if(p.type==="corp") arr.push("kurumsal hat","müşteri hizmeti","çağrı merkezi","resmi hat olabilir");
   if(p.type==="fixed") arr.push("sabit hat","outbound","çağrı merkezi olasılığı");
   if(p.type==="mobile") arr.push("mobil hat");
   if(n.startsWith("0312624")) arr.push("Ankara outbound","sessiz arama","toplu arama","rahatsız");
@@ -228,8 +231,8 @@ async function analyze(url,env){
   const number=cleanNumber(url.searchParams.get("number")||url.searchParams.get("phone"));
   if(!number) return {error:true,message:"Numara yok"};
 
-  const mem=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v24 WHERE number=?").bind(number).first();
-  const rep=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v24 WHERE number=?").bind(number).first();
+  const mem=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v25 WHERE number=?").bind(number).first();
+  const rep=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v25 WHERE number=?").bind(number).first();
 
   const memoryCount=Number(mem?.c||0)+1;
   const reportCount=Number(rep?.c||0);
@@ -241,7 +244,7 @@ async function analyze(url,env){
   const score=smartScore({prefix,memoryCount,reportCount,api,osint});
   const risk=riskLabel(score);
 
-  await env.DB.prepare("INSERT INTO scans_v24(number,score,risk,created_at) VALUES(?,?,?,?)")
+  await env.DB.prepare("INSERT INTO scans_v25(number,score,risk,created_at) VALUES(?,?,?,?)")
     .bind(number,score,risk,now()).run();
 
   return {
@@ -268,7 +271,7 @@ async function report(url,env){
   const note=url.searchParams.get("note")||"topluluk";
   if(!number) return {error:true,message:"Numara yok"};
 
-  await env.DB.prepare("INSERT INTO reports_v24(number,type,note,created_at) VALUES(?,?,?,?)")
+  await env.DB.prepare("INSERT INTO reports_v25(number,type,note,created_at) VALUES(?,?,?,?)")
     .bind(number,type,note,now()).run();
 
   return {ok:true};
@@ -277,21 +280,22 @@ async function report(url,env){
 async function getFeed(env){
   const rows=await env.DB.prepare(`
     SELECT number,type,note,created_at
-    FROM reports_v24
+    FROM reports_v25
     ORDER BY id DESC
     LIMIT 8
   `).all();
 
   return {items:rows.results||[]};
+  
 }
 async function getStats(env){
-  const total=await env.DB.prepare("SELECT COUNT(DISTINCT number) c FROM scans_v24").first();
-  const reports=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v24").first();
-  const today=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v24 WHERE created_at >= date('now')").first();
+  const total=await env.DB.prepare("SELECT COUNT(DISTINCT number) c FROM scans_v25").first();
+  const reports=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v25").first();
+  const today=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v25 WHERE created_at >= date('now')").first();
 
   const top=await env.DB.prepare(`
     SELECT number,COUNT(*) c
-    FROM scans_v24
+    FROM scans_v25
     GROUP BY number
     ORDER BY c DESC
     LIMIT 10
@@ -310,31 +314,27 @@ return `<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <title>Spam Kovucu AI Dashboard</title>
 <style>
-body{margin:0;font-family:Arial;background:#020617;color:white}
-.app{max-width:760px;margin:auto;padding:22px}
-.card{background:#111827;border:1px solid #334155;border-radius:28px;padding:22px;margin:18px 0}
+body{margin:0;font-family:-apple-system,Arial;background:#020617;color:white}
+.wrap{max-width:760px;margin:auto;padding:24px}
+.card{background:rgba(15,23,42,.85);border:1px solid rgba(255,255,255,.08);border-radius:30px;padding:22px;margin:18px 0;backdrop-filter:blur(18px)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .value{font-size:48px;font-weight:900}
-button{width:100%;padding:18px;border:0;border-radius:20px;font-size:20px;font-weight:900;color:white;background:linear-gradient(135deg,#2563eb,#7c3aed)}
 li{margin:10px 0;color:#dbeafe}
 </style>
 </head>
 <body>
-<div class="app">
+<div class="wrap">
 <h1>📊 Spam Kovucu AI Dashboard</h1>
 <div class="grid">
 <div class="card">Toplam Numara<div class="value">${s.total}</div></div>
 <div class="card">Topluluk İhbar<div class="value">${s.reports}</div></div>
 <div class="card">Bugünkü Sorgu<div class="value">${s.today}</div></div>
-<div class="card">Motor<div class="value">V24</div></div>
+<div class="card">Motor<div class="value">V25</div></div>
 </div>
-<div class="card">
-<h2>🔥 En Çok Sorgulananlar</h2>
-<ul>${s.top.map(x=>`<li>${x.number} — ${x.c} sorgu</li>`).join("")||"<li>Kayıt yok</li>"}</ul>
-</div>
+<div class="card"><h2>🔥 En Çok Sorgulananlar</h2><ul>${s.top.map(x=>`<li>${x.number} — ${x.c} sorgu</li>`).join("")||"<li>Kayıt yok</li>"}</ul></div>
 </div>
 </body>
 </html>`;
@@ -348,36 +348,90 @@ return `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <title>Spam Kovucu AI</title>
 <meta name="theme-color" content="#020617">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="https://fav.farm/🛡️">
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:linear-gradient(180deg,#020617,#08111f);color:white;padding-bottom:120px}
-.header{padding:18px 20px 6px;font-size:32px;font-weight:900}
-.sub{padding:0 20px;color:#94a3b8;font-size:13px}
-.glass{margin:14px 16px;background:rgba(15,23,42,.78);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.08);border-radius:28px;padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
-.input{width:100%;padding:20px;border:0;background:#020617;color:white;border-radius:20px;font-size:24px}
-.btn{width:100%;padding:17px;border:0;border-radius:20px;font-size:18px;font-weight:900;color:white;background:linear-gradient(135deg,#2563eb,#7c3aed);margin-top:12px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+margin:0;
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;
+background:
+radial-gradient(circle at top right,rgba(124,58,237,.18),transparent 30%),
+radial-gradient(circle at top left,rgba(37,99,235,.18),transparent 30%),
+#020617;
+color:white;
+padding-top:calc(env(safe-area-inset-top) + 8px);
+padding-bottom:140px;
+}
+.head{padding:14px 20px 4px;font-size:30px;font-weight:900;letter-spacing:-.5px}
+.sub{padding:0 20px;color:#94a3b8;font-size:12px}
+.glass{
+margin:14px 16px;
+background:rgba(15,23,42,.76);
+backdrop-filter:blur(26px);
+border:1px solid rgba(255,255,255,.08);
+border-radius:30px;
+padding:18px;
+box-shadow:0 22px 55px rgba(0,0,0,.28);
+animation:fade .35s ease;
+}
+.input{
+width:100%;
+padding:20px;
+border:0;
+background:#020617;
+color:white;
+border-radius:22px;
+font-size:24px;
+outline:0;
+}
+.btn{
+width:100%;
+padding:17px;
+border:0;
+border-radius:22px;
+font-size:18px;
+font-weight:900;
+color:white;
+background:linear-gradient(135deg,#2563eb,#7c3aed);
+margin-top:12px;
+}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .stat{background:rgba(255,255,255,.05);padding:14px;border-radius:18px}
-.label{font-size:12px;color:#94a3b8}.value{font-size:24px;font-weight:900}
-.risk{font-size:66px;font-weight:1000}
+.label{font-size:11px;color:#94a3b8}.value{font-size:24px;font-weight:900}
+.risk{font-size:64px;font-weight:1000}
 .red{color:#ff0033}.orange{color:#ef4444}.yellow{color:#facc15}.green{color:#22c55e}
-.tag{display:inline-block;background:rgba(255,255,255,.08);padding:7px 12px;border-radius:999px;margin:4px}
-.google{background:rgba(2,6,23,.85);border-radius:18px;padding:12px;margin:10px 0}
-.google h3{margin:0;color:#8ab4f8;font-size:15px}
-.google span{font-size:11px;color:#4ade80}
-.google p{font-size:12px;color:#d1d5db}
+.tag{display:inline-block;background:rgba(255,255,255,.08);padding:7px 12px;border-radius:999px;margin:4px;font-size:12px}
+.google{background:rgba(2,6,23,.82);border-radius:16px;padding:10px;margin:8px 0}
+.google h3{margin:0;color:#8ab4f8;font-size:14px}
+.google span{font-size:10px;color:#4ade80}
+.google p{font-size:11px;color:#d1d5db;margin:6px 0 0}
 .feed{font-size:12px;background:rgba(255,255,255,.04);padding:10px;border-radius:14px;margin:8px 0}
-.smart{padding:14px;border-radius:22px;background:linear-gradient(135deg,rgba(239,68,68,.14),rgba(124,58,237,.14))}
-.tabbar{position:fixed;left:14px;right:14px;bottom:14px;background:rgba(15,23,42,.88);backdrop-filter:blur(30px);border:1px solid rgba(255,255,255,.08);border-radius:28px;padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.smart{padding:14px;border-radius:22px;background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(124,58,237,.12))}
+.tabbar{
+position:fixed;
+left:14px;
+right:14px;
+bottom:calc(env(safe-area-inset-bottom) + 12px);
+background:rgba(15,23,42,.88);
+backdrop-filter:blur(30px);
+border:1px solid rgba(255,255,255,.08);
+border-radius:30px;
+padding:12px;
+display:grid;
+grid-template-columns:1fr 1fr 1fr;
+gap:10px;
+}
 .tab{background:#111827;border:0;color:white;padding:14px;border-radius:18px;font-weight:800}
 a{text-decoration:none}
+@keyframes fade{from{opacity:.3;transform:translateY(10px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
-<div class="header">Spam Kovucu</div>
-<div class="sub">V24 Premium Native iOS Edition</div>
+<div class="head">Spam Kovucu</div>
+<div class="sub">V25 Ultra Native Final</div>
 
 <div class="glass">
 <div class="label">Telefon numarası</div>
@@ -412,7 +466,7 @@ async function tara(){
  if(!n){alert('Numara gir');return;}
  if(navigator.vibrate) navigator.vibrate(35);
 
- sonuc.innerHTML='<div class="glass">🧠 Premium AI tarıyor...</div>';
+ sonuc.innerHTML='<div class="glass">🧠 Ultra AI tarıyor...</div>';
 
  const r=await fetch('/analyze?number='+encodeURIComponent(n)+'&v='+Date.now(),{cache:'no-store'});
  const d=await r.json();
@@ -433,7 +487,7 @@ async function tara(){
 
 async function ihbar(){
  const n=document.getElementById('num').value.trim();
- await fetch('/report?number='+encodeURIComponent(n)+'&type=spam&note=v24',{cache:'no-store'});
+ await fetch('/report?number='+encodeURIComponent(n)+'&type=spam&note=v25',{cache:'no-store'});
  alert('Topluluk ihbarı kaydedildi');
  loadFeed();
  tara();
