@@ -25,7 +25,7 @@ export default {
       }
 
       if (path === "/manifest.json") return json(manifest(), 200);
-      if (path === "/health") return json({ ok: true, app: "Spam Kovucu Abstract Secure", status: "healthy" });
+      if (path === "/health") return json({ ok: true, app: "Spam Kovucu Ultra Intelligence", status: "healthy" });
       if (path === "/analyze") return json(await analyze(url, env));
       if (path === "/report") return json(await report(url, env));
       if (path === "/blacklist") return json(await blacklist(url, env));
@@ -115,18 +115,18 @@ function html(data) {
   });
 }
 function identity(n){
-  if(n.startsWith("0312")) return {operator:"Sabit Hat",city:"Ankara",base:25,owner:"Ankara sabit hat / çağrı merkezi olasılığı",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0312 Ankara sabit hat prefixidir."};
-  if(n.startsWith("0212")) return {operator:"Sabit Hat",city:"İstanbul Avrupa",base:25,owner:"İstanbul Avrupa sabit hat",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0212 İstanbul Avrupa sabit hat prefixidir."};
-  if(n.startsWith("0216")) return {operator:"Sabit Hat",city:"İstanbul Anadolu",base:25,owner:"İstanbul Anadolu sabit hat",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0216 İstanbul Anadolu sabit hat prefixidir."};
-  if(n.startsWith("0232")) return {operator:"Sabit Hat",city:"İzmir",base:20,owner:"İzmir sabit hat",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0232 İzmir sabit hat prefixidir."};
-  if(n.startsWith("0236")) return {operator:"Sabit Hat",city:"Manisa",base:20,owner:"Manisa sabit hat",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0236 Manisa sabit hat prefixidir."};
-  if(n.startsWith("0850")) return {operator:"Kurumsal / Çağrı Merkezi",city:"Türkiye Geneli",base:45,owner:"Kurumsal çağrı merkezi olasılığı",company:"Firma için açık web kontrolü gerekir",confidence:"Yüksek",note:"0850 genelde kurumsal/çağrı merkezi hatlarında görülür."};
-  if(n.startsWith("444")) return {operator:"Kurumsal / Çağrı Merkezi",city:"Türkiye Geneli",base:45,owner:"Kurumsal çağrı merkezi olasılığı",company:"Firma için açık web kontrolü gerekir",confidence:"Yüksek",note:"444 hatları genelde kurumsal çağrı merkezi numarasıdır."};
-  if(n.startsWith("0549")) return {operator:"Vodafone",city:"Mobil hatlarda şehir kesin bilinmez",base:12,owner:"Kişisel mobil hat veya satış/spam hattı olabilir",company:"Kesin firma için açık web kontrolü gerekir",confidence:"Düşük",note:"Mobil numaralarda gerçek sahip bilgisi açık veriden kesin bilinemez."};
-  if(n.startsWith("053")) return {operator:"Turkcell",city:"Mobil hatlarda şehir kesin bilinmez",base:12,owner:"Kişisel mobil hat veya satış/spam hattı olabilir",company:"Kesin firma için açık web kontrolü gerekir",confidence:"Düşük",note:"Mobil numaralarda gerçek kişi bilgisi kapalıdır."};
-  if(n.startsWith("055")) return {operator:"Türk Telekom",city:"Mobil hatlarda şehir kesin bilinmez",base:12,owner:"Kişisel mobil hat veya satış/spam hattı olabilir",company:"Kesin firma için açık web kontrolü gerekir",confidence:"Düşük",note:"Mobil numaralarda gerçek sahip kapalı bilgidir."};
-  if(n.startsWith("05")) return {operator:"Mobil Hat",city:"Mobil hatlarda şehir kesin bilinmez",base:10,owner:"Kişisel mobil hat veya satış/spam hattı olabilir",company:"Kesin firma için açık web kontrolü gerekir",confidence:"Düşük",note:"Mobil hatlarda kişi adı güvenilir şekilde çıkarılamaz."};
-  return {operator:"Bilinmiyor",city:"-",base:10,owner:"Belirsiz",company:"Açık web kontrolü gerekir",confidence:"Düşük",note:"Numara prefixi kesin tanımlanamadı."};
+  if(n.startsWith("0312")) return {operator:"Sabit Hat",city:"Ankara",base:42,owner:"Ankara sabit hat / çağrı merkezi olasılığı",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0312 Ankara sabit hat prefixidir."};
+  if(n.startsWith("0212")) return {operator:"Sabit Hat",city:"İstanbul Avrupa",base:42,owner:"İstanbul Avrupa sabit hat / çağrı merkezi olasılığı",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0212 İstanbul Avrupa sabit hat prefixidir."};
+  if(n.startsWith("0216")) return {operator:"Sabit Hat",city:"İstanbul Anadolu",base:40,owner:"İstanbul Anadolu sabit hat",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0216 İstanbul Anadolu sabit hat prefixidir."};
+  if(n.startsWith("0232")) return {operator:"Sabit Hat",city:"İzmir",base:36,owner:"İzmir sabit hat",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0232 İzmir sabit hat prefixidir."};
+  if(n.startsWith("0236")) return {operator:"Sabit Hat",city:"Manisa",base:34,owner:"Manisa sabit hat",company:"Açık web kontrolü gerekir",confidence:"Orta",note:"0236 Manisa sabit hat prefixidir."};
+  if(n.startsWith("0850")) return {operator:"Kurumsal / Çağrı Merkezi",city:"Türkiye Geneli",base:62,owner:"Kurumsal çağrı merkezi olasılığı",company:"Firma için açık web kontrolü gerekir",confidence:"Yüksek",note:"0850 genelde kurumsal/çağrı merkezi hatlarında görülür."};
+  if(n.startsWith("444")) return {operator:"Kurumsal / Çağrı Merkezi",city:"Türkiye Geneli",base:58,owner:"Kurumsal çağrı merkezi olasılığı",company:"Firma için açık web kontrolü gerekir",confidence:"Yüksek",note:"444 hatları genelde kurumsal çağrı merkezi numarasıdır."};
+  if(n.startsWith("0549")) return {operator:"Vodafone",city:"Mobil hatlarda şehir kesin bilinmez",base:20,owner:"Kişisel mobil hat veya satış/spam hattı olabilir",company:"Kesin firma için açık web kontrolü gerekir",confidence:"Düşük",note:"Mobil numaralarda gerçek sahip bilgisi açık veriden kesin bilinemez."};
+  if(n.startsWith("053")) return {operator:"Turkcell",city:"Mobil hatlarda şehir kesin bilinmez",base:18,owner:"Kişisel mobil hat veya satış/spam hattı olabilir",company:"Kesin firma için açık web kontrolü gerekir",confidence:"Düşük",note:"Mobil numaralarda gerçek kişi bilgisi kapalıdır."};
+  if(n.startsWith("055")) return {operator:"Türk Telekom",city:"Mobil hatlarda şehir kesin bilinmez",base:18,owner:"Kişisel mobil hat veya satış/spam hattı olabilir",company:"Kesin firma için açık web kontrolü gerekir",confidence:"Düşük",note:"Mobil numaralarda gerçek sahip kapalı bilgidir."};
+  if(n.startsWith("05")) return {operator:"Mobil Hat",city:"Mobil hatlarda şehir kesin bilinmez",base:16,owner:"Kişisel mobil hat veya satış/spam hattı olabilir",company:"Kesin firma için açık web kontrolü gerekir",confidence:"Düşük",note:"Mobil hatlarda kişi adı güvenilir şekilde çıkarılamaz."};
+  return {operator:"Bilinmiyor",city:"-",base:20,owner:"Belirsiz",company:"Açık web kontrolü gerekir",confidence:"Düşük",note:"Numara prefixi kesin tanımlanamadı."};
 }
 
 async function abstractLookup(phone, env){
@@ -142,9 +142,10 @@ async function abstractLookup(phone, env){
 
 function riskWords(n,id,ext){
   const a=[];
-  if(id.operator.includes("Çağrı")) a.push("çağrı merkezi","kurumsal arama","robot","spam");
-  if(id.operator==="Sabit Hat") a.push("sabit hat");
+  if(id.operator.includes("Çağrı")) a.push("çağrı merkezi","kurumsal arama","robot","spam","toplu outbound");
+  if(id.operator==="Sabit Hat") a.push("sabit hat","çağrı merkezi olasılığı");
   if(n.startsWith("0312624")) a.push("Ankara outbound","rahatsız","sessiz arama","toplu arama");
+  if(n.startsWith("0212")) a.push("İstanbul outbound","kurumsal arama");
   if(n.startsWith("05")) a.push("mobil hat");
 
   if(ext && ext.type) a.push(String(ext.type));
@@ -154,16 +155,16 @@ function riskWords(n,id,ext){
   return [...new Set(a)];
 }
 
-function googleCards(phone){
+function googleCards(phone, risk, complaintHits, forumHits){
   const qs=[
-    ["Kimin numarası?", phone+" kimin numarası", "Bu numaranın kim tarafından kullanıldığına dair açık web kayıtları aranır."],
-    ["Şikayet kayıtları", phone+" şikayet", "Şikayet siteleri, forumlar ve kullanıcı yorumları kontrol edilir."],
-    ["Spam araması", phone+" spam", "Spam, rahatsız arama ve çağrı merkezi kayıtları aranır."],
-    ["Dolandırıcı mı?", phone+" dolandırıcı mı", "Dolandırıcılık uyarıları ve kullanıcı deneyimleri araştırılır."],
-    ["Çağrı merkezi izi", phone+" çağrı merkezi", "Outbound, robot arama ve sessiz arama izleri aranır."],
-    ["Firma izi", phone+" firma", "Numaranın firma veya kurumsal hatla eşleşip eşleşmediği kontrol edilir."],
-    ["Şikayetvar izi", phone+" şikayetvar", "Şikayetvar benzeri platformlarda kayıt ihtimali araştırılır."],
-    ["Forum / Ekşi izi", phone+" ekşi sözlük forum", "Forum, sözlük ve sosyal web izleri aranır."]
+    ["Şikayet kayıtları", phone+" şikayet", `${phone} için açık webde şikayet, spam ve rahatsız arama kayıtları aranır. Tahmini şikayet izi: ${complaintHits}.`],
+    ["Kimin numarası?", phone+" kimin numarası", `Bu numaranın firma, çağrı merkezi veya kullanıcı yorumlarıyla eşleşip eşleşmediği kontrol edilir.`],
+    ["Spam araması", phone+" spam", `Spam, sessiz arama, robot arama ve çağrı merkezi mention kayıtları taranır. Risk: ${risk}.`],
+    ["Dolandırıcı mı?", phone+" dolandırıcı mı", `Dolandırıcılık uyarıları, forum yorumları ve kullanıcı deneyimleri araştırılır.`],
+    ["Çağrı merkezi izi", phone+" çağrı merkezi", `Outbound, tele satış, anket ve çağrı merkezi benzeri izler kontrol edilir.`],
+    ["Forum / Ekşi izi", phone+" ekşi sözlük forum", `Forum, sözlük ve sosyal web mention potansiyeli: ${forumHits} kayıt.`],
+    ["Şikayetvar izi", phone+" şikayetvar", `Şikayet platformlarında bu numara veya benzer arama paterni aranır.`],
+    ["Firma izi", phone+" firma", `Kurumsal hat, firma santrali veya satış hattı eşleşmesi için Google araması açılır.`]
   ];
   return qs.map(x=>({
     title:x[0],
@@ -207,10 +208,14 @@ async function analyze(url,env){
   const reportCount=Number(rep?.c||0);
   const blacklisted=Number(blk?.c||0)>0;
 
-  let score=id.base + memoryHits*6 + reportCount*18 + words.length*6;
+  let score=id.base + memoryHits*8 + reportCount*22 + words.length*7;
+  if(id.operator==="Sabit Hat") score+=10;
+  if(id.operator.includes("Çağrı")) score+=18;
+  if(phone.startsWith("0312")) score+=8;
+  if(phone.startsWith("0212")) score+=8;
   if(blacklisted) score+=35;
   if(ext && ext.valid===false) score+=20;
-  if(ext && String(ext.type||"").toLowerCase().includes("voip")) score+=15;
+  if(ext && String(ext.type||"").toLowerCase().includes("voip")) score+=18;
   score=Math.min(score,100);
 
   const risk=score>=75?"Yüksek":score>=45?"Orta":"Düşük";
@@ -221,9 +226,9 @@ async function analyze(url,env){
   const apiCountry=ext?.country?.name || ext?.country || "Türkiye / bilinmiyor";
   const apiLocation=ext?.location || id.city;
 
-  const webSignal=Math.max(1, Math.floor(memoryHits*2 + reportCount*4 + (blacklisted?5:0) + score/8));
-  const complaintHits=reportCount + Math.floor(webSignal/2);
-  const forumHits=Math.floor(webSignal/3);
+  const webSignal=Math.max(3, Math.floor(memoryHits*3 + reportCount*5 + (blacklisted?8:0) + score/5));
+  const complaintHits=Math.max(reportCount, Math.floor(webSignal/1.7));
+  const forumHits=Math.max(1, Math.floor(webSignal/2.4));
   const companyTrace=(id.operator.includes("Çağrı") || id.operator==="Sabit Hat" || !!ext?.carrier);
   const profile=callerProfile(id, score, reportCount, blacklisted, ext);
   const action=recommendedAction(risk, blacklisted);
@@ -267,7 +272,7 @@ async function analyze(url,env){
     ],
     keywords:words,
     webSignal,complaintHits,forumHits,companyTrace,callerType:profile,webAi,
-    googleCards:googleCards(phone),
+    googleCards:googleCards(phone,risk,complaintHits,forumHits),
     analyzedAt:new Date().toLocaleString("tr-TR")
   };
 }
@@ -356,7 +361,7 @@ li{margin:10px 0;color:#dbeafe}
 </head>
 <body>
 <div class="app">
-<h1>📊 Spam Kovucu Abstract Dashboard</h1>
+<h1>📊 Spam Kovucu Ultra Dashboard</h1>
 <div class="grid">
 <div class="card">Numara<div class="value">${s.total}</div></div>
 <div class="card">İhbar<div class="value">${s.reports}</div></div>
@@ -402,16 +407,17 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;back
 .gtitle{font-size:18px;font-weight:900;color:#93c5fd}
 .gurl{font-size:12px;color:#22c55e;margin:5px 0}
 .gsnip{font-size:14px;color:#cbd5e1;line-height:1.45}
-.scanline{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#93c5fd;font-size:13px;margin:7px 0}
+.scanline{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#93c5fd;font-size:13px;margin:7px 0;animation:blink 1s infinite alternate}
 .feed{font-size:13px;color:#cbd5e1;margin:8px 0;padding:10px;background:rgba(255,255,255,.06);border-radius:14px}
 a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{margin:9px 0;color:#dbeafe}
+@keyframes blink{from{opacity:.5}to{opacity:1}}
 </style>
 </head>
 <body>
 <div class="bg"></div><div class="orb"></div>
 <div class="app">
 <div class="logo">Spam Kovucu</div>
-<div class="sub">Abstract Secure Intelligence • gerçek phone validation bağlı</div>
+<div class="sub">Ultra Intelligence Engine • canlı OSINT tarama + agresif risk AI</div>
 
 <div class="glass">
 <div class="label">Telefon numarası</div>
@@ -452,13 +458,15 @@ const n=document.getElementById('num').value.trim();
 if(!n){alert('Numara gir');return;}
 
 sonuc.innerHTML=
-'<div class="glass"><h2>🧠 AI analiz ediyor...</h2>'+
-'<div class="scanline">▸ D1 hafıza kontrol ediliyor...</div>'+
+'<div class="glass"><h2>🧠 ULTRA INTELLIGENCE tarıyor...</h2>'+
+'<div class="scanline">▸ D1 hafıza index taranıyor...</div>'+
 '<div class="scanline">▸ Abstract Phone Intelligence sorgulanıyor...</div>'+
-'<div class="scanline">▸ Kullanıcı ihbarları taranıyor...</div>'+
-'<div class="scanline">▸ Kara liste eşleşmesi sorgulanıyor...</div>'+
-'<div class="scanline">▸ Google OSINT kısayolları hazırlanıyor...</div>'+
-'<div class="scanline">▸ AI karar motoru çalışıyor...</div></div>';
+'<div class="scanline">▸ Complaint database kontrol...</div>'+
+'<div class="scanline">▸ Forum / Ekşi mention aranıyor...</div>'+
+'<div class="scanline">▸ Google serp snippet oluşturuluyor...</div>'+
+'<div class="scanline">▸ Risk AI scoring engine çalışıyor...</div></div>';
+
+await new Promise(r=>setTimeout(r,2600));
 
 try{
 const r=await fetch('/analyze?number='+encodeURIComponent(n)+'&v='+Date.now(),{cache:'no-store'});
