@@ -1,4 +1,4 @@
-const ADMIN_KEY = "SKP-9471-ULTRA";
+
 const RATE = new Map();
 
 export default {
@@ -247,7 +247,7 @@ async function report(url,env){
 
 async function blacklist(url,env){
   const admin=url.searchParams.get("admin")||"";
-  if(admin!==ADMIN_KEY){
+  if(admin!==env.ADMIN_KEY){
     return {error:true,message:"Admin yetkisi gerekli"};
   }
 
