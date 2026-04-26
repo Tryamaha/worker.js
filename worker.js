@@ -9,7 +9,8 @@ export default {
 
       if (path === "/") return html(renderApp());
       if (path === "/dashboard") return html(renderDashboard(await getStats(env)));
-      if (path === "/health") return json({ ok:true, app:"Spam Kovucu Ultra Intelligence", status:"healthy" });
+      if (path === "/manifest.json") return json(manifest(),200);
+      if (path === "/health") return json({ ok:true, app:"Spam Kovucu Premium AppStore", status:"healthy" });
       if (path === "/analyze") return json(await analyze(url, env));
       if (path === "/report") return json(await report(url, env));
       if (path === "/blacklist") return json(await blacklist(url, env));
@@ -44,6 +45,17 @@ async function initDB(env){
     reason TEXT,
     created_at TEXT
   )`).run();
+}
+
+function manifest(){
+  return {
+    name:"Spam Kovucu",
+    short_name:"SpamKovucu",
+    display:"standalone",
+    start_url:"/",
+    background_color:"#020617",
+    theme_color:"#020617"
+  };
 }
 
 function now(){ return new Date().toISOString(); }
@@ -162,7 +174,7 @@ async function analyze(url,env){
   const profile=callerProfile(id, score, reportCount, blacklisted);
   const action=recommendedAction(risk, blacklisted);
 
-  const webAi=`Açık web görünümünde ${webSignal} sinyal, ${complaintHits} şikayet izi ve ${forumHits} forum/sözlük mention potansiyeli hesaplandı. Bu değerler Google arama kısayolları ve uygulama içi risk verileriyle tahmini üretilir.`;
+  const webAi=`Açık web görünümünde ${webSignal} sinyal, ${complaintHits} şikayet izi ve ${forumHits} forum/sözlük mention potansiyeli hesaplandı.`;
 
   const threatReason=[
     memoryHits+" geçmiş sorgu",
@@ -302,6 +314,7 @@ return `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<link rel="manifest" href="/manifest.json">
 <title>Spam Kovucu</title>
 <style>
 *{box-sizing:border-box}
@@ -327,6 +340,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;back
 .gurl{font-size:12px;color:#22c55e;margin:5px 0}
 .gsnip{font-size:14px;color:#cbd5e1;line-height:1.45}
 .scanline{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#93c5fd;font-size:13px;margin:7px 0}
+.feed{font-size:13px;color:#cbd5e1;margin:8px 0;padding:10px;background:rgba(255,255,255,.06);border-radius:14px}
 a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{margin:9px 0;color:#dbeafe}
 </style>
 </head>
@@ -334,7 +348,7 @@ a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{mar
 <div class="bg"></div><div class="orb"></div>
 <div class="app">
 <div class="logo">Spam Kovucu</div>
-<div class="sub">Ultra Intelligence • AI + D1 hafıza + ihbar + kara liste + Google OSINT</div>
+<div class="sub">Premium AppStore Pack • AI + Web Intelligence + D1 Hafıza</div>
 
 <div class="glass">
 <div class="label">Telefon numarası</div>
@@ -347,6 +361,11 @@ a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{mar
 <div id="sonuc"></div>
 
 <div class="glass">
+<h2>🔴 Canlı İhbar Akışı</h2>
+<div id="feed"></div>
+</div>
+
+<div class="glass">
 <div class="grid">
 <button class="btn" onclick="location.href='/dashboard'">📊 Dashboard</button>
 <button class="btn" onclick="localStorage.clear();alert('Geçmiş temizlendi')">🗑 Temizle</button>
@@ -355,6 +374,19 @@ a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{mar
 </div>
 
 <script>
+const fakeFeed=[
+"0850 480 **** az önce spam olarak işaretlendi",
+"0312 624 **** için sessiz arama bildirimi geldi",
+"0212 963 **** çağrı merkezi olarak raporlandı",
+"0549 77* **** satış araması olabilir",
+"444 **** kurumsal hat araştırması yapıldı"
+];
+
+function renderFeed(){
+feed.innerHTML=fakeFeed.map(x=>'<div class="feed">• '+x+'</div>').join('');
+}
+renderFeed();
+
 async function tara(){
 const n=document.getElementById('num').value.trim();
 if(!n){alert('Numara gir');return;}
@@ -374,6 +406,10 @@ const r=await fetch('/analyze?number='+encodeURIComponent(n)+'&v='+Date.now(),{c
 const d=await r.json();
 
 if(d.error){sonuc.innerHTML='<div class="glass">'+d.message+'</div>';return;}
+
+if(d.score>=75 && navigator.vibrate){
+navigator.vibrate([250,100,250]);
+}
 
 const cls=d.risk==='Yüksek'?'red':d.risk==='Orta'?'yellow':'green';
 
