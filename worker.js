@@ -374,12 +374,17 @@ return `<!DOCTYPE html>
 <style>
 *{box-sizing:border-box}
 html{background:#020617}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:linear-gradient(180deg,#020617,#071120,#09142a);color:white;min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#020617;color:white;min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.bg{position:fixed;inset:0;background:radial-gradient(circle at top left,#2563eb 0,#020617 42%,#000 100%);z-index:-2}
+.orb{position:fixed;width:260px;height:260px;border-radius:50%;filter:blur(60px);opacity:.45;background:#7c3aed;right:-90px;top:80px;z-index:-1}
 .splash{position:fixed;inset:0;background:#020617;display:flex;align-items:center;justify-content:center;z-index:99;transition:.5s}
 .splash.hide{opacity:0;pointer-events:none}
+.splashbox{text-align:center}
+.splashicon{font-size:68px;animation:pulse 1s infinite alternate}
+.splashtitle{font-size:24px;font-weight:900;margin-top:14px}
 .app{max-width:560px;margin:auto;padding:18px 18px 110px}
-.logo{font-size:58px;font-weight:950;padding-top:20px;line-height:.95}
-.sub{color:#c7d2fe;font-size:15px;margin-top:10px}
+.logo{font-size:54px;font-weight:950;padding-top:20px;line-height:.95}
+.sub{color:#c7d2fe;font-size:15px;margin-top:10px;line-height:1.4}
 .glass{background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 22px 60px rgba(0,0,0,.35);backdrop-filter:blur(22px);border-radius:32px;padding:20px;margin:18px 0}
 .input{width:100%;border:0;outline:0;background:#020617;color:white;border-radius:24px;padding:20px;font-size:26px}
 .btn{width:100%;border:0;border-radius:24px;padding:18px;font-size:20px;font-weight:900;color:white;background:linear-gradient(135deg,#2563eb,#7c3aed);margin-top:10px}
@@ -388,18 +393,27 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;back
 .label{color:#94a3b8;font-size:14px}.value{font-size:26px;font-weight:900}
 .risk{font-size:78px;font-weight:1000;margin:8px 0}
 .red{color:#ff0033}.orange{color:#ef4444}.yellow{color:#facc15}.green{color:#22c55e}
+.bar{height:16px;background:#1e293b;border-radius:99px;overflow:hidden;margin:12px 0}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444,#ff0033);transition:1.4s}
 .tag{display:inline-block;background:rgba(255,255,255,.13);padding:8px 14px;border-radius:99px;margin:5px}
-.google{background:#020611;border-radius:20px;padding:14px;margin:12px 0}
-.google h3{margin:0;color:#9cc2ff}.google span{font-size:12px;color:#4ade80}.google p{font-size:13px;color:#d0d7de}
+.gcard{background:rgba(2,6,23,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:14px;margin:12px 0}
+.gtitle{font-size:17px;font-weight:900;color:#8ab4f8}
+.gurl{font-size:12px;color:#34a853;margin:5px 0}
+.gsnip{font-size:13px;color:#d0d7de;line-height:1.5}
+.scanline{font-family:monospace;color:#93c5fd;font-size:13px;margin:7px 0}
 .feed{font-size:13px;color:#cbd5e1;margin:8px 0;padding:10px;background:rgba(255,255,255,.06);border-radius:14px}
 .smart{padding:16px;border-radius:24px;background:linear-gradient(135deg,rgba(239,68,68,.16),rgba(124,58,237,.16));border:1px solid rgba(255,255,255,.12);margin-bottom:16px}
+a{color:#7dd3fc;text-decoration:none}
+@keyframes pulse{from{transform:scale(.96)}to{transform:scale(1.05)}}
 </style>
 </head>
 <body>
-<div id="splash" class="splash"><div style="text-align:center;font-size:26px;font-weight:900">🛡️<br>Spam Kovucu AI</div></div>
+<div id="splash" class="splash"><div class="splashbox"><div class="splashicon">🛡️</div><div class="splashtitle">Spam Kovucu AI</div></div></div>
+<div class="bg"></div><div class="orb"></div>
+
 <div class="app">
 <div class="logo">Spam<br>Kovucu</div>
-<div class="sub">V22 Clean Titanium Engine</div>
+<div class="sub">V22 Stable • Premium Native Sunum</div>
 
 <div class="glass">
 <div class="label">Telefon numarası</div>
@@ -411,12 +425,14 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;back
 
 <div class="glass">
 <h2>🔴 Canlı Topluluk Akışı</h2>
-<div id="feedbox">Yükleniyor...</div>
+<div id="feedbox"><div class="feed">Yükleniyor...</div></div>
 </div>
 
 <div class="glass">
+<div class="grid">
 <button class="btn" onclick="location.href='/dashboard?admin='+prompt('Admin key')">📊 Dashboard</button>
 <button class="btn" onclick="localStorage.clear();alert('Temizlendi')">🧹 Temizle</button>
+</div>
 </div>
 </div>
 
@@ -424,9 +440,13 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;back
 setTimeout(()=>document.getElementById('splash').classList.add('hide'),900);
 
 async function loadFeed(){
- const s=await fetch('/feed?v='+Date.now(),{cache:'no-store'});
- const d=await s.json();
- feedbox.innerHTML=(d.items||[]).map(x=>'<div class="feed">• '+x.number+' topluluk tarafından riskli işaretlendi</div>').join('')||'<div class="feed">Henüz topluluk ihbarı yok</div>';
+  try{
+    const s=await fetch('/feed?v='+Date.now(),{cache:'no-store'});
+    const d=await s.json();
+    feedbox.innerHTML=(d.items||[]).map(x=>'<div class="feed">• '+x.number+' topluluk tarafından '+(x.type||'spam')+' işaretlendi</div>').join('')||'<div class="feed">Henüz topluluk ihbarı yok</div>';
+  }catch(e){
+    feedbox.innerHTML='<div class="feed">Feed yüklenemedi</div>';
+  }
 }
 loadFeed();
 setInterval(loadFeed,8000);
@@ -435,7 +455,7 @@ async function tara(){
  const n=document.getElementById('num').value.trim();
  if(!n){alert('Numara gir');return;}
 
- sonuc.innerHTML='<div class="glass">🧠 Titanium AI tarıyor...</div>';
+ sonuc.innerHTML='<div class="glass"><h2>🧠 V22 AI tarıyor...</h2><div class="scanline">▸ Topluluk hafızası okunuyor...</div><div class="scanline">▸ Abstract API sorgulanıyor...</div><div class="scanline">▸ OSINT sinyalleri hesaplanıyor...</div></div>';
 
  const r=await fetch('/analyze?number='+encodeURIComponent(n)+'&v='+Date.now(),{cache:'no-store'});
  const d=await r.json();
@@ -447,17 +467,19 @@ async function tara(){
 
  sonuc.innerHTML=
  '<div class="smart"><b>'+d.aiDecision+'</b><br>'+d.recommendedAction+'</div>'+
- '<div class="glass"><div class="risk '+cls+'">'+d.risk+'</div><div class="grid"><div class="stat"><div class="label">Skor</div><div class="value">'+d.score+'</div></div><div class="stat"><div class="label">Hafıza</div><div class="value">'+d.memoryHits+'</div></div><div class="stat"><div class="label">Topluluk</div><div class="value">'+d.reportCount+'</div></div><div class="stat"><div class="label">Web Şikayet</div><div class="value">'+d.complaintHits+'</div></div></div></div>'+
+ '<div class="glass"><div class="label">Risk Seviyesi</div><div class="risk '+cls+'">'+d.risk+'</div><div class="bar"><div id="fill" class="fill"></div></div><div class="grid"><div class="stat"><div class="label">Skor</div><div class="value">'+d.score+'</div></div><div class="stat"><div class="label">Hafıza</div><div class="value">'+d.memoryHits+'</div></div><div class="stat"><div class="label">Topluluk</div><div class="value">'+d.reportCount+'</div></div><div class="stat"><div class="label">Web Şikayet</div><div class="value">'+d.complaintHits+'</div></div></div></div>'+
  '<div class="glass"><p><b>Arayan Profil:</b> '+d.callerProfile+'</p><p><b>Tehdit Nedeni:</b> '+d.threatReason+'</p></div>'+
  '<div class="glass"><p><b>Carrier:</b> '+d.apiCarrier+'</p><p><b>Hat Tipi:</b> '+d.apiLineType+'</p><p><b>Lokasyon:</b> '+d.apiLocation+'</p></div>'+
  '<div class="glass"><h2>🧬 Risk Kelimeleri</h2>'+d.keywords.map(x=>'<span class="tag">'+x+'</span>').join('')+'</div>'+
- '<div class="glass"><h2>🔎 Google Canlı Sonuçlar</h2>'+d.googleCards.map(c=>'<a target="_blank" href="'+c.link+'"><div class="google"><h3>'+c.title+'</h3><span>'+c.query+'</span><p>'+c.snippet+'</p></div></a>').join('')+'</div>'+
+ '<div class="glass"><h2>🔎 Google Canlı Sonuçlar</h2>'+d.googleCards.map(c=>'<a target="_blank" href="'+c.link+'"><div class="gcard"><div class="gtitle">'+c.title+'</div><div class="gurl">'+c.query+'</div><div class="gsnip">'+c.snippet+'</div></div></a>').join('')+'</div>'+
  '<div class="glass"><button class="btn" onclick="ihbar()">🚨 TOPLULUK İHBARI GÖNDER</button></div>';
+
+ setTimeout(()=>{document.getElementById('fill').style.width=d.score+'%';},200);
 }
 
 async function ihbar(){
  const n=document.getElementById('num').value.trim();
- await fetch('/report?number='+encodeURIComponent(n)+'&type=spam&note=clean',{cache:'no-store'});
+ await fetch('/report?number='+encodeURIComponent(n)+'&type=spam&note=stable',{cache:'no-store'});
  alert('Topluluk ihbarı kaydedildi');
  loadFeed();
  tara();
