@@ -1,6 +1,15 @@
+const ADMIN_KEY = "SKP-9471-ULTRA";
+const RATE = new Map();
+
 export default {
   async fetch(request, env) {
     try {
+      const ip = request.headers.get("cf-connecting-ip") || "0.0.0.0";
+
+      if(!allow(ip)){
+        return json({ error:true, message:"Çok fazla istek gönderildi" },429);
+      }
+
       await initDB(env);
       const url = new URL(request.url);
       const path = url.pathname;
@@ -10,7 +19,7 @@ export default {
       if (path === "/") return html(renderApp());
       if (path === "/dashboard") return html(renderDashboard(await getStats(env)));
       if (path === "/manifest.json") return json(manifest(),200);
-      if (path === "/health") return json({ ok:true, app:"Spam Kovucu Premium AppStore", status:"healthy" });
+      if (path === "/health") return json({ ok:true, app:"Spam Kovucu Secure Premium", status:"healthy" });
       if (path === "/analyze") return json(await analyze(url, env));
       if (path === "/report") return json(await report(url, env));
       if (path === "/blacklist") return json(await blacklist(url, env));
@@ -18,10 +27,20 @@ export default {
 
       return json({ error:true, message:"Endpoint bulunamadı" },404);
     } catch(e) {
-      return json({ error:true, message:String(e) },500);
+      return json({ error:true, message:"Sistem hatası" },500);
     }
   }
 };
+
+function allow(ip){
+  const nowt = Date.now();
+  const arr = RATE.get(ip) || [];
+  const fresh = arr.filter(x=> nowt-x < 60000);
+  if(fresh.length > 45) return false;
+  fresh.push(nowt);
+  RATE.set(ip,fresh);
+  return true;
+}
 
 async function initDB(env){
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS memory (
@@ -227,8 +246,13 @@ async function report(url,env){
 }
 
 async function blacklist(url,env){
+  const admin=url.searchParams.get("admin")||"";
+  if(admin!==ADMIN_KEY){
+    return {error:true,message:"Admin yetkisi gerekli"};
+  }
+
   const phone=clean(url.searchParams.get("number")||url.searchParams.get("phone"));
-  const reason=url.searchParams.get("reason")||"uygulama kara liste";
+  const reason=url.searchParams.get("reason")||"admin kara liste";
   if(!phone) return {error:true,message:"Numara gerekli"};
 
   await env.DB.prepare("INSERT OR REPLACE INTO blacklist(phone,reason,created_at) VALUES(?,?,?)")
@@ -293,7 +317,7 @@ li{margin:10px 0;color:#dbeafe}
 </head>
 <body>
 <div class="app">
-<h1>📊 Spam Kovucu Pro Dashboard</h1>
+<h1>📊 Spam Kovucu Secure Dashboard</h1>
 <div class="grid">
 <div class="card">Numara<div class="value">${s.total}</div></div>
 <div class="card">İhbar<div class="value">${s.reports}</div></div>
@@ -348,7 +372,7 @@ a{color:#7dd3fc;text-decoration:none}.muted{color:#cbd5e1;line-height:1.5}li{mar
 <div class="bg"></div><div class="orb"></div>
 <div class="app">
 <div class="logo">Spam Kovucu</div>
-<div class="sub">Premium AppStore Pack • AI + Web Intelligence + D1 Hafıza</div>
+<div class="sub">Secure Premium • AI + Web Intelligence + D1 Hafıza</div>
 
 <div class="glass">
 <div class="label">Telefon numarası</div>
@@ -423,7 +447,7 @@ sonuc.innerHTML=
 '<div class="glass"><h2>🚨 Bulgular</h2><ul>'+d.findings.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>'+
 '<div class="glass"><h2>🧬 Risk Kelimeleri</h2>'+d.keywords.map(x=>'<span class="tag">'+x+'</span>').join('')+'</div>'+
 '<div class="glass"><h2>🔎 Google Snippet Görünümü</h2>'+d.googleCards.map(x=>'<a target="_blank" href="'+x.link+'"><div class="gcard"><div class="gtitle">'+x.title+'</div><div class="gurl">google.com/search?q='+x.query+'</div><div class="gsnip">'+x.snippet+'</div></div></a>').join('')+'</div>'+
-'<div class="glass"><div class="grid"><button class="btn" onclick="ihbar()">🚨 İhbar</button><button class="btn" onclick="kara()">⛔ Kara Liste</button></div></div>';
+'<div class="glass"><div class="grid"><button class="btn" onclick="ihbar()">🚨 İhbar</button><button class="btn" onclick="alert(\\'Kara liste için admin yetkisi gerekir.\\')">⛔ Kara Liste</button></div></div>';
 
 setTimeout(()=>{document.getElementById('fill').style.width=d.score+'%';},200);
 
@@ -436,13 +460,6 @@ async function ihbar(){
 const n=document.getElementById('num').value.trim();
 await fetch('/report?number='+encodeURIComponent(n));
 alert('İhbar kaydedildi');
-tara();
-}
-
-async function kara(){
-const n=document.getElementById('num').value.trim();
-await fetch('/blacklist?number='+encodeURIComponent(n));
-alert('Kara listeye eklendi');
 tara();
 }
 </script>
