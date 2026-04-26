@@ -22,7 +22,7 @@ export default {
         return html(renderDashboard(await getStats(env)));
       }
 
-      if (path === "/manifest.json") return json(manifest(),200);
+      if (path === "/manifest.json") return json(manifest());
       if (path === "/analyze") return json(await analyze(url, env));
       if (path === "/report") return json(await report(url, env));
       if (path === "/blacklist") return json(await blacklist(url, env));
@@ -37,10 +37,10 @@ export default {
 };
 
 function allow(ip){
-  const t=Date.now();
-  const old=RATE.get(ip)||[];
-  const fresh=old.filter(x=>t-x<60000);
-  if(fresh.length>45) return false;
+  const t = Date.now();
+  const old = RATE.get(ip) || [];
+  const fresh = old.filter(x => t - x < 60000);
+  if (fresh.length > 60) return false;
   fresh.push(t);
   RATE.set(ip,fresh);
   return true;
@@ -79,7 +79,7 @@ function manifest(){
 }
 
 async function initDB(env){
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scans(
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scans_v16 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT,
     score INTEGER,
@@ -87,23 +87,24 @@ async function initDB(env){
     created_at TEXT
   )`).run();
 
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports(
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports_v16 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT,
     created_at TEXT
   )`).run();
 
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS blacklist(
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS blacklist_v16 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT UNIQUE,
-    reason TEXT
+    reason TEXT,
+    created_at TEXT
   )`).run();
 }
 
 function cleanNumber(v){
-  let n=String(v||"").replace(/\D/g,"");
-  if(n.startsWith("90")) n="0"+n.slice(2);
-  if(n.length===10) n="0"+n;
+  let n = String(v || "").replace(/\D/g,"");
+  if(n.startsWith("90")) n = "0" + n.slice(2);
+  if(n.length === 10) n = "0" + n;
   return n;
 }
 
@@ -114,16 +115,16 @@ async function abstractLookup(number, env){
   try{
     if(!env.ABSTRACT_KEY) return {};
     const r = await fetch(
-      "https://phonevalidation.abstractapi.com/v1/?api_key="+env.ABSTRACT_KEY+
-      "&phone="+encodeURIComponent(number)
+      "https://phonevalidation.abstractapi.com/v1/?api_key=" + env.ABSTRACT_KEY +
+      "&phone=" + encodeURIComponent(number)
     );
     if(!r.ok) return {};
     const d = await r.json();
     return {
-      valid:d.valid===true,
-      carrier:d.carrier || "",
-      line_type:d.type || "",
-      country:d.country?.name || d.country || ""
+      valid: d.valid === true,
+      carrier: d.carrier || "",
+      line_type: d.type || "",
+      country: d.country?.name || d.country || ""
     };
   }catch(e){
     return {};
@@ -143,84 +144,83 @@ function prefixData(n){
 }
 
 function osintSignals(n,prefix){
-  let webSignal=6;
-  let complaintHits=1;
-  let forumHits=1;
-  let callerType="Bilinmeyen arayan";
+  let webSignal = 6;
+  let complaintHits = 1;
+  let forumHits = 1;
+  let callerType = "Bilinmeyen arayan";
 
-  if(prefix.type==="corporate"){
-    webSignal=18;
-    complaintHits=8;
-    forumHits=5;
-    callerType="Kurumsal çağrı merkezi / outbound";
+  if(prefix.type === "corporate"){
+    webSignal = 18;
+    complaintHits = 8;
+    forumHits = 5;
+    callerType = "Kurumsal çağrı merkezi / outbound";
   }
 
-  if(prefix.type==="fixed"){
-    webSignal=22;
-    complaintHits=12;
-    forumHits=7;
-    callerType="Sabit hat / olası çağrı merkezi";
+  if(prefix.type === "fixed"){
+    webSignal = 22;
+    complaintHits = 12;
+    forumHits = 7;
+    callerType = "Sabit hat / olası çağrı merkezi";
   }
 
-  if(prefix.type==="mobile"){
-    webSignal=8;
-    complaintHits=2;
-    forumHits=1;
-    callerType="Mobil hat / bireysel veya satış hattı";
+  if(prefix.type === "mobile"){
+    webSignal = 8;
+    complaintHits = 2;
+    forumHits = 1;
+    callerType = "Mobil hat / bireysel veya satış hattı";
   }
 
   if(n.startsWith("0312624")){
-    webSignal+=18;
-    complaintHits+=12;
-    forumHits+=8;
-    callerType="Ankara outbound / sessiz arama paterni";
+    webSignal += 18;
+    complaintHits += 12;
+    forumHits += 8;
+    callerType = "Ankara outbound / sessiz arama paterni";
   }
 
   return {
     webSignal,
     complaintHits,
     forumHits,
-    companyTrace: prefix.type==="corporate" || prefix.type==="fixed",
+    companyTrace: prefix.type === "corporate" || prefix.type === "fixed",
     callerType
   };
 }
 
 function smartScore({prefix,memCount,repCount,blacklisted,api,osint}){
-  let score=8;
+  let score = 8;
 
-  if(prefix.type==="mobile") score+=8;
-  if(prefix.type==="fixed") score+=24;
-  if(prefix.type==="corporate") score+=32;
-  if(prefix.type==="unknown") score+=18;
+  if(prefix.type === "mobile") score += 8;
+  if(prefix.type === "fixed") score += 24;
+  if(prefix.type === "corporate") score += 32;
+  if(prefix.type === "unknown") score += 18;
 
-  score += Math.min(memCount*4,20);
-  score += Math.min(repCount*18,45);
+  score += Math.min(memCount * 4, 20);
+  score += Math.min(repCount * 18, 45);
 
-  if(blacklisted) score+=40;
+  if(blacklisted) score += 40;
+  if(api.valid === false) score += 18;
+  if(String(api.line_type || "").toLowerCase().includes("voip")) score += 18;
 
-  if(api.valid===false) score+=18;
-  if(String(api.line_type||"").toLowerCase().includes("voip")) score+=18;
+  score += Math.min(Math.floor(osint.complaintHits / 2), 14);
 
-  score += Math.min(Math.floor(osint.complaintHits/2),14);
-
-  if(prefix.type==="corporate" && !blacklisted && repCount===0){
-    score=Math.min(score,68);
+  if(prefix.type === "corporate" && !blacklisted && repCount === 0){
+    score = Math.min(score, 68);
   }
 
-  if(prefix.type==="corporate" && !blacklisted && repCount<=1){
-    score=Math.min(score,72);
+  if(prefix.type === "corporate" && !blacklisted && repCount <= 1){
+    score = Math.min(score, 72);
   }
 
-  if(prefix.type==="mobile" && !blacklisted && repCount===0){
-    score=Math.min(score,38);
+  if(prefix.type === "mobile" && !blacklisted && repCount === 0){
+    score = Math.min(score, 38);
   }
 
-  return Math.max(0,Math.min(100,score));
+  return Math.max(0, Math.min(100, score));
 }
 
 function riskLabel(score){
-  if(score>=75) return "Yüksek";
-  if(score>=45) return "Orta";
+  if(score >= 75) return "Yüksek";
+  if(score >= 45) return "Orta";
   return "Düşük";
 }
 function keywordList(number,prefix,api,blacklisted){
@@ -257,31 +257,33 @@ function googleCards(number,risk,osint){
 }
 
 async function analyze(url,env){
-  const number=cleanNumber(url.searchParams.get("number")||url.searchParams.get("phone"));
+  const number = cleanNumber(url.searchParams.get("number") || url.searchParams.get("phone"));
   if(!number) return {error:true,message:"Numara yok"};
 
-  const prefix=prefixData(number);
-  const api=await abstractLookup(number,env);
-  const osint=osintSignals(number,prefix);
+  const prefix = prefixData(number);
+  const api = await abstractLookup(number,env);
+  const osint = osintSignals(number,prefix);
 
-  const mem=await env.DB.prepare("SELECT COUNT(*) c FROM scans WHERE number=?").bind(number).first();
-  const rep=await env.DB.prepare("SELECT COUNT(*) c FROM reports WHERE number=?").bind(number).first();
-  const blk=await env.DB.prepare("SELECT * FROM blacklist WHERE number=?").bind(number).first();
+  const mem = await env.DB.prepare("SELECT COUNT(*) c FROM scans_v16 WHERE number=?").bind(number).first();
+  const rep = await env.DB.prepare("SELECT COUNT(*) c FROM reports_v16 WHERE number=?").bind(number).first();
+  const blk = await env.DB.prepare("SELECT * FROM blacklist_v16 WHERE number=?").bind(number).first();
 
-  const memCount=Number(mem?.c||0)+1;
-  const repCount=Number(rep?.c||0);
-  const blacklisted=!!blk;
+  const memCount = Number(mem?.c||0)+1;
+  const repCount = Number(rep?.c||0);
+  const blacklisted = !!blk;
 
-  const score=smartScore({prefix,memCount,repCount,blacklisted,api,osint});
-  const risk=riskLabel(score);
+  const score = smartScore({prefix,memCount,repCount,blacklisted,api,osint});
+  const risk = riskLabel(score);
 
-  let aiDecision="Belirgin yüksek risk yok";
-  if(risk==="Orta") aiDecision="Temkinli yaklaş";
-  if(risk==="Yüksek") aiDecision="Yüksek dikkat gerekli";
+  let aiDecision = "Belirgin yüksek risk yok";
+  if(risk==="Orta") aiDecision = "Temkinli yaklaş";
+  if(risk==="Yüksek") aiDecision = "Yüksek dikkat gerekli";
 
-  let callerProfile=osint.callerType;
-  if(blacklisted) callerProfile="Kara liste kayıtlı yüksek riskli arayan";
-  if(prefix.type==="corporate" && !blacklisted && repCount===0) callerProfile="Kurumsal hat / spam olmayabilir, yine de dikkatli ol";
+  let callerProfile = osint.callerType;
+  if(blacklisted) callerProfile = "Kara liste kayıtlı yüksek riskli arayan";
+  if(prefix.type==="corporate" && !blacklisted && repCount===0){
+    callerProfile = "Kurumsal hat / spam olmayabilir, yine de dikkatli ol";
+  }
 
   const recommendedAction =
     risk==="Yüksek"
@@ -290,7 +292,7 @@ async function analyze(url,env){
       ? "Temkinli konuş. Firma adını doğrula, kişisel bilgi paylaşma."
       : "Belirgin yüksek risk yok fakat bilinmeyen aramalarda dikkatli ol.";
 
-  const threatReason=[
+  const threatReason = [
     `${memCount} geçmiş sorgu`,
     `${repCount} kullanıcı ihbarı`,
     blacklisted ? "kara liste eşleşmesi" : "kara liste eşleşmesi yok",
@@ -298,7 +300,7 @@ async function analyze(url,env){
     `${prefix.operator} operatör`
   ].join(" • ");
 
-  await env.DB.prepare("INSERT INTO scans(number,score,risk,created_at) VALUES(?,?,?,?)")
+  await env.DB.prepare("INSERT INTO scans_v16(number,score,risk,created_at) VALUES(?,?,?,?)")
     .bind(number,score,risk,now()).run();
 
   return {
@@ -344,12 +346,11 @@ async function analyze(url,env){
     googleCards:googleCards(number,risk,osint)
   };
 }
-
 async function report(url,env){
   const number=cleanNumber(url.searchParams.get("number")||url.searchParams.get("phone"));
   if(!number) return {error:true,message:"Numara yok"};
 
-  await env.DB.prepare("INSERT INTO reports(number,created_at) VALUES(?,?)")
+  await env.DB.prepare("INSERT INTO reports_v16(number,created_at) VALUES(?,?)")
     .bind(number,now()).run();
 
   return {ok:true,message:"İhbar kaydedildi"};
@@ -363,19 +364,20 @@ async function blacklist(url,env){
   const reason=url.searchParams.get("reason")||"admin";
   if(!number) return {error:true,message:"Numara yok"};
 
-  await env.DB.prepare("INSERT OR REPLACE INTO blacklist(number,reason) VALUES(?,?)")
-    .bind(number,reason).run();
+  await env.DB.prepare("INSERT OR REPLACE INTO blacklist_v16(number,reason,created_at) VALUES(?,?,?)")
+    .bind(number,reason,now()).run();
 
   return {ok:true,message:"Kara listeye eklendi"};
 }
+
 async function getStats(env){
-  const total=await env.DB.prepare("SELECT COUNT(DISTINCT number) c FROM scans").first();
-  const reports=await env.DB.prepare("SELECT COUNT(*) c FROM reports").first();
-  const blacklist=await env.DB.prepare("SELECT COUNT(*) c FROM blacklist").first();
+  const total=await env.DB.prepare("SELECT COUNT(DISTINCT number) c FROM scans_v16").first();
+  const reports=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v16").first();
+  const blacklist=await env.DB.prepare("SELECT COUNT(*) c FROM blacklist_v16").first();
 
   const top=await env.DB.prepare(`
     SELECT number,COUNT(*) c
-    FROM scans
+    FROM scans_v16
     GROUP BY number
     ORDER BY c DESC
     LIMIT 10
