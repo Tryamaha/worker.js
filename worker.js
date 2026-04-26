@@ -18,8 +18,8 @@ export default {
       if (path === "/analyze") return json(await analyze(url, env));
       if (path === "/report") return json(await report(url, env));
       if (path === "/blacklist") return json(await blacklist(url, env));
-      if (path === "/stats") return json(await getStats(env));
       if (path === "/feed") return json(await getFeed(env));
+      if (path === "/stats") return json(await getStats(env));
 
       if (path === "/dashboard") {
         if (url.searchParams.get("admin") !== env.ADMIN_KEY) {
@@ -70,21 +70,34 @@ function html(data){
 
 function manifest(){
   return {
-    name:"Spam Kovucu",
-    short_name:"SpamK",
+    name:"Spam Kovucu AI",
+    short_name:"Spam AI",
+    description:"Bilinmeyen arama, spam ve dolandırıcılık risk analiz motoru",
     display:"standalone",
-    start_url:"/",
+    orientation:"portrait",
+    start_url:"/?v=21",
+    scope:"/",
     background_color:"#020617",
     theme_color:"#020617",
     icons:[
-      {src:"https://fav.farm/🛡️",sizes:"192x192",type:"image/png"},
-      {src:"https://fav.farm/🚨",sizes:"512x512",type:"image/png"}
+      {
+        src:"https://fav.farm/🛡️",
+        sizes:"192x192",
+        type:"image/png",
+        purpose:"any maskable"
+      },
+      {
+        src:"https://fav.farm/🚨",
+        sizes:"512x512",
+        type:"image/png",
+        purpose:"any maskable"
+      }
     ]
   };
 }
 
 async function initDB(env){
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scans_v20 (
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scans_v21 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT,
     score INTEGER,
@@ -92,7 +105,7 @@ async function initDB(env){
     created_at TEXT
   )`).run();
 
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports_v20 (
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports_v21 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT,
     type TEXT,
@@ -100,7 +113,7 @@ async function initDB(env){
     created_at TEXT
   )`).run();
 
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS blacklist_v20 (
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS blacklist_v21 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     number TEXT UNIQUE,
     reason TEXT,
@@ -144,47 +157,33 @@ function prefixData(n){
   if(n.startsWith("0216")) return {prefix:"0216",operator:"İstanbul Anadolu Sabit Hat",city:"İstanbul",owner:"İstanbul Anadolu sabit hat",confidence:"Orta",type:"fixed",bonus:29};
   if(n.startsWith("0232")) return {prefix:"0232",operator:"İzmir Sabit Hat",city:"İzmir",owner:"İzmir sabit hat",confidence:"Orta",type:"fixed",bonus:23};
   if(n.startsWith("0236")) return {prefix:"0236",operator:"Manisa Sabit Hat",city:"Manisa",owner:"Manisa sabit hat",confidence:"Orta",type:"fixed",bonus:22};
-
   if(n.startsWith("0850")) return {prefix:"0850",operator:"Kurumsal Çağrı Merkezi",city:"Türkiye Geneli",owner:"Kurumsal çağrı merkezi olabilir",confidence:"Yüksek",type:"corporate",bonus:34};
   if(n.startsWith("444")) return {prefix:"444",operator:"Kurumsal Hizmet Hattı",city:"Türkiye",owner:"Kurumsal hizmet / müşteri hattı olabilir",confidence:"Yüksek",type:"corporate",bonus:30};
-
   if(n.startsWith("0549")) return {prefix:"0549",operator:"Mobil Satış Havuzu",city:"Mobil",owner:"Satış veya kampanya hattı olabilir",confidence:"Düşük",type:"mobile",bonus:22};
   if(n.startsWith("05")) return {prefix:n.slice(0,4),operator:"Mobil Hat",city:"Mobil",owner:"Kişisel mobil hat veya satış hattı olabilir",confidence:"Düşük",type:"mobile",bonus:13};
-
   return {prefix:n.slice(0,4),operator:"Bilinmiyor",city:"Bilinmiyor",owner:"Açık web kontrolü gerekir",confidence:"Düşük",type:"unknown",bonus:18};
 }
 
 function osintSignals(n,prefix,repCount){
-  let webSignal=10;
-  let complaintHits=2;
-  let forumHits=1;
-  let callerType="Bilinmeyen arayan";
+  let webSignal=10, complaintHits=2, forumHits=1, callerType="Bilinmeyen arayan";
 
   if(prefix.type==="corporate"){
-    webSignal=30;
-    complaintHits=10;
-    forumHits=6;
+    webSignal=30; complaintHits=10; forumHits=6;
     callerType="Kurumsal hat / resmi müşteri hizmeti de olabilir";
   }
 
   if(prefix.type==="fixed"){
-    webSignal=38;
-    complaintHits=20;
-    forumHits=12;
+    webSignal=38; complaintHits=20; forumHits=12;
     callerType="Sabit hat / outbound arama";
   }
 
   if(prefix.type==="mobile"){
-    webSignal=12;
-    complaintHits=4;
-    forumHits=2;
+    webSignal=12; complaintHits=4; forumHits=2;
     callerType="Mobil hat / bireysel veya satış";
   }
 
   if(n.startsWith("0312624")){
-    webSignal+=24;
-    complaintHits+=18;
-    forumHits+=14;
+    webSignal+=24; complaintHits+=18; forumHits+=14;
     callerType="Ankara yoğun outbound paterni";
   }
 
@@ -214,7 +213,6 @@ function smartScore({prefix,memCount,repCount,blacklisted,api,osint}){
   if(api.valid===false) score += 20;
   if(String(api.line_type||"").toLowerCase().includes("voip")) score += 22;
 
-  // Kurumsal tolerans: 444 / 0850 resmi hat olabilir
   if(prefix.type==="corporate" && !blacklisted && repCount===0){
     score -= 14;
     score = Math.min(score,68);
@@ -257,30 +255,10 @@ function googleCards(number,risk,osint){
   const q4=`https://www.google.com/search?q=${encodeURIComponent(number+" çağrı merkezi")}`;
 
   return [
-    {
-      title:`${number} şikayet kayıtları`,
-      query:"Google canlı arama • şikayet",
-      snippet:`Tahmini ${osint.complaintHits} açık web şikayet izi hesaplandı.`,
-      link:q1
-    },
-    {
-      title:`${number} kimin numarası`,
-      query:"Google canlı arama • kimlik",
-      snippet:`Firma, kullanıcı yorumu veya çağrı merkezi eşleşmeleri araştırılır.`,
-      link:q2
-    },
-    {
-      title:`${number} spam araması`,
-      query:"Google canlı arama • spam",
-      snippet:`Spam, robot arama ve rahatsız çağrı kayıtları taranır. Risk: ${risk}.`,
-      link:q3
-    },
-    {
-      title:`${number} çağrı merkezi izi`,
-      query:"Google canlı arama • outbound",
-      snippet:`Kurumsal hat, satış hattı veya telemarketing mention sonuçları aranır.`,
-      link:q4
-    }
+    {title:`${number} şikayet kayıtları`,query:"Google canlı arama • şikayet",snippet:`Tahmini ${osint.complaintHits} açık web şikayet izi hesaplandı.`,link:q1},
+    {title:`${number} kimin numarası`,query:"Google canlı arama • kimlik",snippet:`Firma, kullanıcı yorumu veya çağrı merkezi eşleşmeleri araştırılır.`,link:q2},
+    {title:`${number} spam araması`,query:"Google canlı arama • spam",snippet:`Spam, robot arama ve rahatsız çağrı kayıtları taranır. Risk: ${risk}.`,link:q3},
+    {title:`${number} çağrı merkezi izi`,query:"Google canlı arama • outbound",snippet:`Kurumsal hat, satış hattı veya telemarketing mention sonuçları aranır.`,link:q4}
   ];
 }
 
@@ -288,9 +266,9 @@ async function analyze(url,env){
   const number=cleanNumber(url.searchParams.get("number")||url.searchParams.get("phone"));
   if(!number) return {error:true,message:"Numara yok"};
 
-  const mem=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v20 WHERE number=?").bind(number).first();
-  const rep=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v20 WHERE number=?").bind(number).first();
-  const blk=await env.DB.prepare("SELECT * FROM blacklist_v20 WHERE number=?").bind(number).first();
+  const mem=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v21 WHERE number=?").bind(number).first();
+  const rep=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v21 WHERE number=?").bind(number).first();
+  const blk=await env.DB.prepare("SELECT * FROM blacklist_v21 WHERE number=?").bind(number).first();
 
   const memCount=Number(mem?.c||0)+1;
   const repCount=Number(rep?.c||0);
@@ -309,13 +287,10 @@ async function analyze(url,env){
   if(risk==="Kritik") aiDecision="Kritik risk / engelleme önerilir";
 
   const recommendedAction =
-    risk==="Kritik"
-      ? "Numarayı engelle. Kesinlikle bilgi paylaşma."
-      : risk==="Yüksek"
-      ? "Geri arama önerilmez. Resmi kanaldan doğrula."
-      : risk==="Orta"
-      ? "Temkinli konuş. Kişisel bilgi paylaşma."
-      : "Belirgin yüksek risk yok fakat dikkatli ol.";
+    risk==="Kritik" ? "Numarayı engelle. Kesinlikle bilgi paylaşma." :
+    risk==="Yüksek" ? "Geri arama önerilmez. Resmi kanaldan doğrula." :
+    risk==="Orta" ? "Temkinli konuş. Kişisel bilgi paylaşma." :
+    "Belirgin yüksek risk yok fakat dikkatli ol.";
 
   const threatReason=[
     `${memCount} geçmiş sorgu`,
@@ -326,7 +301,7 @@ async function analyze(url,env){
     `${osint.complaintHits} şikayet izi`
   ].join(" • ");
 
-  await env.DB.prepare("INSERT INTO scans_v20(number,score,risk,created_at) VALUES(?,?,?,?)")
+  await env.DB.prepare("INSERT INTO scans_v21(number,score,risk,created_at) VALUES(?,?,?,?)")
     .bind(number,score,risk,now()).run();
 
   return {
@@ -360,7 +335,7 @@ async function report(url,env){
   const note=url.searchParams.get("note")||"topluluk";
   if(!number) return {error:true,message:"Numara yok"};
 
-  await env.DB.prepare("INSERT INTO reports_v20(number,type,note,created_at) VALUES(?,?,?,?)")
+  await env.DB.prepare("INSERT INTO reports_v21(number,type,note,created_at) VALUES(?,?,?,?)")
     .bind(number,type,note,now()).run();
 
   return {ok:true};
@@ -373,7 +348,7 @@ async function blacklist(url,env){
   const number=cleanNumber(url.searchParams.get("number")||url.searchParams.get("phone"));
   const reason=url.searchParams.get("reason")||"admin";
 
-  await env.DB.prepare("INSERT OR REPLACE INTO blacklist_v20(number,reason,created_at) VALUES(?,?,?)")
+  await env.DB.prepare("INSERT OR REPLACE INTO blacklist_v21(number,reason,created_at) VALUES(?,?,?)")
     .bind(number,reason,now()).run();
 
   return {ok:true};
@@ -382,7 +357,7 @@ async function blacklist(url,env){
 async function getFeed(env){
   const rows=await env.DB.prepare(`
     SELECT number,type,note,created_at
-    FROM reports_v20
+    FROM reports_v21
     ORDER BY id DESC
     LIMIT 8
   `).all();
@@ -390,14 +365,14 @@ async function getFeed(env){
   return {items:rows.results||[]};
 }
 async function getStats(env){
-  const total=await env.DB.prepare("SELECT COUNT(DISTINCT number) c FROM scans_v20").first();
-  const reports=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v20").first();
-  const blacklist=await env.DB.prepare("SELECT COUNT(*) c FROM blacklist_v20").first();
-  const today=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v20 WHERE created_at >= date('now')").first();
+  const total=await env.DB.prepare("SELECT COUNT(DISTINCT number) c FROM scans_v21").first();
+  const reports=await env.DB.prepare("SELECT COUNT(*) c FROM reports_v21").first();
+  const blacklist=await env.DB.prepare("SELECT COUNT(*) c FROM blacklist_v21").first();
+  const today=await env.DB.prepare("SELECT COUNT(*) c FROM scans_v21 WHERE created_at >= date('now')").first();
 
   const top=await env.DB.prepare(`
     SELECT number,COUNT(*) c
-    FROM scans_v20
+    FROM scans_v21
     GROUP BY number
     ORDER BY c DESC
     LIMIT 10
@@ -418,7 +393,7 @@ return `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Spam Kovucu V20 Dashboard</title>
+<title>Spam Kovucu AI Dashboard</title>
 <style>
 body{margin:0;font-family:Arial;background:#020617;color:white}
 .app{max-width:760px;margin:auto;padding:22px}
@@ -431,7 +406,7 @@ li{margin:10px 0;color:#dbeafe}
 </head>
 <body>
 <div class="app">
-<h1>📊 Spam Kovucu V20 ENTERPRISE</h1>
+<h1>📊 Spam Kovucu AI Dashboard</h1>
 <div class="grid">
 <div class="card">Toplam Numara<div class="value">${s.total}</div></div>
 <div class="card">Topluluk İhbar<div class="value">${s.reports}</div></div>
@@ -454,13 +429,24 @@ return `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Spam Kovucu AI</title>
+<meta name="theme-color" content="#020617">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spam AI">
 <link rel="manifest" href="/manifest.json">
-<title>Spam Kovucu V20</title>
+<link rel="apple-touch-icon" href="https://fav.farm/🛡️">
 <style>
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#020617;color:white}
+html{background:#020617}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;background:#020617;color:white;min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 .bg{position:fixed;inset:0;background:radial-gradient(circle at top left,#2563eb 0,#020617 42%,#000 100%);z-index:-2}
 .orb{position:fixed;width:260px;height:260px;border-radius:50%;filter:blur(60px);opacity:.45;background:#7c3aed;right:-90px;top:80px;z-index:-1}
+.splash{position:fixed;inset:0;background:#020617;display:flex;align-items:center;justify-content:center;z-index:99;transition:.5s}
+.splash.hide{opacity:0;pointer-events:none}
+.splashbox{text-align:center}
+.splashicon{font-size:68px;animation:pulse 1s infinite alternate}
+.splashtitle{font-size:24px;font-weight:900;margin-top:14px}
 .app{max-width:560px;margin:auto;padding:18px 18px 110px}
 .logo{font-size:54px;font-weight:950;padding-top:20px}
 .sub{color:#c7d2fe;font-size:15px;margin-top:10px}
@@ -482,37 +468,25 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial;back
 .scanline{font-family:monospace;color:#93c5fd;font-size:13px;margin:7px 0}
 .feed{font-size:13px;color:#cbd5e1;margin:8px 0;padding:10px;background:rgba(255,255,255,.06);border-radius:14px}
 .smart{padding:16px;border-radius:24px;background:linear-gradient(135deg,rgba(239,68,68,.16),rgba(124,58,237,.16));border:1px solid rgba(255,255,255,.12);margin-bottom:16px}
+a{color:#7dd3fc;text-decoration:none}
+@keyframes pulse{from{transform:scale(.96)}to{transform:scale(1.05)}}
 </style>
 </head>
 <body>
+<div id="splash" class="splash"><div class="splashbox"><div class="splashicon">🛡️</div><div class="splashtitle">Spam Kovucu AI</div></div></div>
 <div class="bg"></div><div class="orb"></div>
 <div class="app">
 <div class="logo">Spam Kovucu</div>
-<div class="sub">V20 Enterprise • kurumsal tolerans + canlı topluluk AI</div>
-
-<div class="glass">
-<div class="label">Telefon numarası</div>
-<input id="num" class="input" inputmode="tel" placeholder="03126242405">
-<br><br>
-<button class="btn" onclick="tara()">FULL ANALİZ BAŞLAT</button>
-</div>
-
+<div class="sub">V21 Native • iPhone standalone spam intelligence</div>
+<div class="glass"><div class="label">Telefon numarası</div><input id="num" class="input" inputmode="tel" placeholder="03126242405"><br><br><button class="btn" onclick="tara()">FULL ANALİZ BAŞLAT</button></div>
 <div id="sonuc"></div>
-
-<div class="glass">
-<h2>🔴 Canlı Topluluk Akışı</h2>
-<div id="feedbox"><div class="feed">Yükleniyor...</div></div>
-</div>
-
-<div class="glass">
-<div class="grid">
-<button class="btn" onclick="location.href='/dashboard?admin='+prompt('Admin key')">📊 Dashboard</button>
-<button class="btn" onclick="localStorage.clear();alert('Geçmiş temizlendi')">🗑 Temizle</button>
-</div>
-</div>
+<div class="glass"><h2>🔴 Canlı Topluluk Akışı</h2><div id="feedbox"><div class="feed">Yükleniyor...</div></div></div>
+<div class="glass"><div class="grid"><button class="btn" onclick="location.href='/dashboard?admin='+prompt('Admin key')">📊 Dashboard</button><button class="btn" onclick="localStorage.clear();alert('Geçmiş temizlendi')">🗑 Temizle</button></div></div>
 </div>
 
 <script>
+setTimeout(()=>document.getElementById('splash').classList.add('hide'),900);
+
 async function loadFeed(){
   try{
     const s=await fetch('/feed?v='+Date.now(),{cache:'no-store'});
@@ -529,7 +503,7 @@ async function tara(){
 const n=document.getElementById('num').value.trim();
 if(!n){alert('Numara gir');return;}
 
-sonuc.innerHTML='<div class="glass"><h2>🧠 V20 Enterprise tarıyor...</h2><div class="scanline">▸ Topluluk hafızası okunuyor...</div><div class="scanline">▸ Abstract API sorgulanıyor...</div><div class="scanline">▸ OSINT sinyalleri hesaplanıyor...</div><div class="scanline">▸ Enterprise AI scoring çalışıyor...</div></div>';
+sonuc.innerHTML='<div class="glass"><h2>🧠 V21 Native tarıyor...</h2><div class="scanline">▸ Topluluk hafızası okunuyor...</div><div class="scanline">▸ Abstract API sorgulanıyor...</div><div class="scanline">▸ OSINT sinyalleri hesaplanıyor...</div><div class="scanline">▸ Native AI scoring çalışıyor...</div></div>';
 
 await new Promise(r=>setTimeout(r,1500));
 
@@ -555,7 +529,7 @@ setTimeout(()=>{document.getElementById('fill').style.width=d.score+'%';},200);
 
 async function ihbar(){
 const n=document.getElementById('num').value.trim();
-await fetch('/report?number='+encodeURIComponent(n)+'&type=spam&note=enterprise',{cache:'no-store'});
+await fetch('/report?number='+encodeURIComponent(n)+'&type=spam&note=native',{cache:'no-store'});
 alert('Topluluk ihbarı kaydedildi');
 loadFeed();
 tara();
